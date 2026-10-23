@@ -10,7 +10,8 @@
   paragraphs must cite their resources and reasoning, and we can talk about it later (4). Agents must be
   allowed at every step, to automate it, and humans at every step, to study it (5).
 - ACS-alHikmet is not the house of wisdom but its ACS: it doesn't contain the 512GB, but the methodology
-  of building it (8).
+  of building it (8); its agents use the terminal to build the RAG from many resources, not the
+  author's job, given to a few brilliant newbies (70).
 - The author believes any system can be data about objects, structures on them and procedures about
   them: an arity holds a group's data; the identities set matches identity to memory and does set
   operations; structures hold relations and know nothing of data, else that would be another arity, a
@@ -32,17 +33,32 @@
   contract interfaces; ACSE a few good implementations; ACSES a client side for ACS based databases;
   ACS-alHikmet agents building and auditing a database of paragraphs; ACSAH viewer a GUI analyzing its
   product; OntoDirectory, where it all started, to be integrated with ACSE, and later it can be run by
-  agents like ACS-alHikmet (22).
-- The GUI is OntoDirectory, needing improvements (23). ACS-view runs acsess like a terminal, with
-  beginSession, one refresh being one program run and one connection (30); it shows and edits (31).
+  agents like ACS-alHikmet (22). ACSAH-viewer is the GUI for viewing a RAG, the last project, waiting
+  for ACS-alHikmet (71). OntoDirectory is right now only a Set Hierarchy method for sorting files,
+  instead of folders; later we can integrate more of the ACS (73).
+- ACS-view is the acsess GUI, a simple GUI for ACSES that allows editing and keeps the queried data in
+  memory (72): in its own Maven module, `acsess-gui`, a database tool like SQL viewing tools that also
+  edits, with OntoDirectory's GUI cloned in for the structure, not the views (68). As its own module,
+  it would be a seventh beside the six (21, 68).
+- ACS-view organizes ACS based databases, and OntoDirectory is a special version organizing files with
+  ACS; both are GUI applications (69), replacing "the GUI is OntoDirectory, needing improvements" (23).
+  ACS-view runs acsess like a terminal, with beginSession, one refresh being one program run and one
+  connection (30); it shows and edits (31).
 - Right now there is no access control or security, not in the MVP (24).
 - `acse` is the library, not usable on its own: no working database comes from it alone, as `acses` runs
   it, but a Java program can use it directly (25, 26). `acse` replaced `acs` and `acses` replaced
   `acse`, like "access" (27): ACS is the system, ACSE implements it, ACSES uses it for the database
-  service (28).
+  service (28). ACSES passes requests to the core; those commands are planned in another session (65).
+- A request is described by a line in a small string grammar, written by reflection from the methods
+  the implementation marks, so no name is a literal; acsed gathers a database's lines into
+  `acse-language.txt` at its root, which acsess reads (66). acsed's own commands are not journaled and
+  do not go through `ACS_Actor` (67).
+- During an inspection, the rollback `inspectAt`, the journal refuses a write loudly; a command waiting
+  for the return answers with the current activity index and the count of activities after it (64).
 - ASP would name the system but is likely trademarked, ASPCC its full name; we go with acs, `OE_`
-  becoming `ACS_` (29). The package is acse and interfaces start with ACS, except the core, journal and
-  persistence manager: ACS the idea, the engine the database side (32).
+  becoming `ACS_` (29). The package is acse; ACS is the idea, the engine the database side; the
+  interfaces in `acs` start with `ACS_`, the core, journal, persistence manager and description manager
+  included (63), no longer "except the core, journal and persistence manager" (32).
 - The licence would be like a bomb, forcing every one responsible to open source (33); commercial use
   must be commercial (34): AGPL-3.0-only with a commercial licence, if skipping a well-known one costs
   near nothing (35), plus Oracle's Universal FOSS Exception (36); `LICENSE` holds the AGPL, `NOTICE` the
@@ -80,8 +96,10 @@
 - `acse/CLAUDE.md`: the implementations: the journal's and the persistence manager's choices, and the
   identity sets.
 - `acses/CLAUDE.md`: the terminal application: the service, boot, and creating and loading databases.
-- `acs-view/CLAUDE.md`: the GUI for ACSES: its package and views.
+- `acs-view/CLAUDE.md`: ACS-view, the GUI for ACSES: its package and views.
+- `acs-alhikmet/CLAUDE.md`: ACS-alHikmet: the rows storing a source file and its page number.
 - `deprecatedCode/org/halim/ontology/CLAUDE.md`: the former engine, read only.
 - In `markdowns/`: `agents-citable.md` and `agents-unreviewed.md`, this folder's entries;
-  `new-architecture.md`, the author's words on the three-file method; `current-state.md`,
-  `questions.md`, `terms.md`, `markdown-refining.md`, `novelty-study.md` and `naming-fix.md`.
+  `new-architecture.md`, the author's words on the three-file method; `plan.md`, the acsess-gui round's
+  plan; `current-state.md`, `questions.md`, `terms.md`, `markdown-refining.md`, `novelty-study.md` and
+  `naming-fix.md`.

@@ -4,6 +4,7 @@
   one (1).
 - Not all catalogs are arrays; they can be calculations on the identity (3).
 - Scattered gathering is unlikely; a name-to-slot method is not necessary right now (2).
+- A client gets a new record's index by capturing it; `registerIf` is no request (9).
 - Given an identity number, the arity skips removed ones via its identities set (4); bulk reads
   intersect the range with the occupied set once (6).
 - The author thinks pending removals are not needed, the sets handle them (7); swap and

@@ -15,6 +15,12 @@
 - It would be cool to store all the classes as a jar (11), one per save if space is not concerning, as
   Gradle does (12); a class without a static loadFrom is left out with a warning, since it likely does
   not need to persist (13).
+- A row a request makes keeps its file at the database's root, `arity-<k>-row-<j>.bin`, or
+  `arity-<k>-row-<j>plus.bin` for one file of several rows; a store keeps its path relative to the
+  root, and a load copies the stored file to the loaded database's root (15).
+- A removed component leaves a tombstone rather than shifting the pointers, which also allows a
+  compacting load (16).
 - Linking unchanged files between stores is version control; the author doubts we should, wanting the
   database somewhat simple (14).
 - `arity/sets/CLAUDE.md`: the identity set implementations.
+- `arity/catalog/file/CLAUDE.md`: the file catalog rows, and who finds their paths.
