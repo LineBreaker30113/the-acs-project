@@ -23,6 +23,7 @@
         <module>ontodirectory</module>
         <module>acs-alhikmet</module>
         <module>acsah-viewer</module>
+        <module>acsess-gui</module>
     </modules>
 
     <licenses>

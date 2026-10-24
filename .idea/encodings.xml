@@ -3,8 +3,8 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/acs-alhikmet/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/acs-alhikmet/src/main/resources" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/acs-view/src/main/java" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/acs-view/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/acsess-gui/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/acsess-gui/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/acs/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/acs/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/acsah-viewer/src/main/java" charset="UTF-8" />

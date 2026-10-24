@@ -112,7 +112,7 @@ mean `acse`; `acsr`, `asrc` and `ascar` are the requester.)*
   Show and edit. *(2026-10-22)*
 - **68.** ACS-view is the acsess GUI, in a separate Maven module, `acsess-gui`: a database tool like SQL viewing
   tools that also edits, OntoDirectory's GUI cloned into it for the structure, not the views, and
-  running acsess; its GUI design decisions are in `acs-view/agents-citable.md` and root 30, root 31. *(Author, 2026-10-21:
+  running acsess; its GUI design decisions are in `acsess-gui/agents-citable.md` and root 30, root 31. *(Author, 2026-10-21:
   "For context, we later will also make a similar application called ACS-view, that is simply the
   acsess GUI."; 2026-10-22: "I want you to clone the onto directory GUI to a new maven module of named
   acs-view, and make it prompt the acsess to work and visualize stuff."; [what the clone keeps:] "Not

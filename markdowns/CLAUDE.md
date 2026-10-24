@@ -96,7 +96,7 @@
 - `acse/CLAUDE.md`: the implementations: the journal's and the persistence manager's choices, and the
   identity sets.
 - `acses/CLAUDE.md`: the terminal application: the service, boot, and creating and loading databases.
-- `acs-view/CLAUDE.md`: ACS-view, the GUI for ACSES: its package and views.
+- `acsess-gui/CLAUDE.md`: ACS-view, the GUI for ACSES: its package and views.
 - `acs-alhikmet/CLAUDE.md`: ACS-alHikmet: the rows storing a source file and its page number.
 - `deprecatedCode/org/halim/ontology/CLAUDE.md`: the former engine, read only.
 - In `markdowns/`: `agents-citable.md` and `agents-unreviewed.md`, this folder's entries;

@@ -12,20 +12,21 @@
         <module name="acse" />
         <module name="acses" />
         <module name="ontodirectory" />
+        <module name="acsess-gui" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="acs-view" target="21" />
+      <module name="acsess-gui" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="acs" options="-parameters" />
       <module name="acs-alhikmet" options="-parameters" />
-      <module name="acs-view" options="-parameters" />
       <module name="acsah-viewer" options="-parameters" />
       <module name="acse" options="-parameters" />
       <module name="acses" options="-parameters" />
+      <module name="acsess-gui" options="-parameters" />
       <module name="ontodirectory" options="-parameters" />
       <module name="the-acs-project" options="-parameters" />
     </option>
