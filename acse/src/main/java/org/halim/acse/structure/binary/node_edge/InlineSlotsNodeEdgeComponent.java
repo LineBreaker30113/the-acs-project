@@ -44,6 +44,11 @@ public InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int node
 	this.slots = checkSlots(slots);
 }
 
+/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges, slots read from the request, in that order; nothing is written back. */
+public InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readInt());
+}
+
 InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, Rules rules, int slots) {
 	super(core, journal, rules);
 	this.slots = checkSlots(slots);

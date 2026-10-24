@@ -60,6 +60,11 @@ public ArrayListsOfByToComponent(ACS_Core core, ACS_Journal journal, int ofArity
 	this.restrictions = restrictions;
 }
 
+/** Built by name through the core's addStructure: ofArity, byArity, toArity, restrictions read from the request, in that order; nothing is written back. */
+public ArrayListsOfByToComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readInt(), parameters.readInt());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

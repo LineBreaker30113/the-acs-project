@@ -67,6 +67,11 @@ public TransitionsOfByToComponent(ACS_Core core, ACS_Journal journal, int ofArit
 	this.restrictions = restrictions;
 }
 
+/** Built by name through the core's addStructure: ofArity, byArity, toArity, restrictions read from the request, in that order; nothing is written back. */
+public TransitionsOfByToComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readInt(), parameters.readInt());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

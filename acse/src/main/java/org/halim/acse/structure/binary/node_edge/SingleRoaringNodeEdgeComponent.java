@@ -7,6 +7,7 @@ import org.halim.acs.ACS_Requestable;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 
 
@@ -42,6 +43,11 @@ final IntArrayList edgesInOrder = new IntArrayList();
 
 public SingleRoaringNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops) {
 	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, false);
+}
+
+/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops read from the request, in that order; nothing is written back. */
+public SingleRoaringNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean());
 }
 
 SingleRoaringNodeEdgeComponent(ACS_Core core, ACS_Journal journal, Rules rules) {

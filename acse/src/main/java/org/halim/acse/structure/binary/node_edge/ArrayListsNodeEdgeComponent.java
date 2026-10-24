@@ -5,6 +5,7 @@ import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -26,6 +27,11 @@ final ArrayList<IntArrayList> incident = new ArrayList<>();
 
 public ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops, boolean allowsParallelEdges) {
 	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges);
+}
+
+/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges read from the request, in that order; nothing is written back. */
+public ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean());
 }
 
 ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, Rules rules) {

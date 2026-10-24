@@ -11,12 +11,11 @@
         <module name="acsah-viewer" />
         <module name="acse" />
         <module name="acses" />
-        <module name="ontodirectory" />
         <module name="acsess-gui" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="acsess-gui" target="21" />
+      <module name="ontodirectory" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">

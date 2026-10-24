@@ -70,6 +70,11 @@ public ForestNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity
 	this.skipFirstNode = skipFirstNode;
 }
 
+/** Built by name through the core's addStructure: nodeArity, edgeArity, skipFirstNode read from the request, in that order; nothing is written back. */
+public ForestNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean());
+}
+
 
 @Override
 public int getArityCount() { return 2; }

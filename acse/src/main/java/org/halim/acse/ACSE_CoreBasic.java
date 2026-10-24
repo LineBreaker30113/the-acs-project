@@ -151,6 +151,45 @@ static Constructor<?> constructorOf(Class<?> type, Class<?>... parameters) {
 	catch(NoSuchMethodException e) { return null; }
 }
 
+/**
+ * The request's line: a structure is added as an arity is, by a description and a comment, while what it is
+ * follows them on the stream, which no line can carry - the class's full name, then the settings its class
+ * reads. A call without the stream is refused; the request reaches {@link #addStructure(DataInputStream,
+ * DataOutputStream, String, String)}.
+ * */
+@ACS_Requestable(7)
+public int addStructure(String description, String comment) {
+	throw new IllegalArgumentException("addStructure reads the structure's class name and settings from the request's stream");
+}
+
+/**
+ * Builds the structure named first on {@code parameters} by its full class name, through this core's own
+ * class loader, so a loaded database finds the structure classes its folder carries, by its public
+ * constructor taking {@code (ACS_Core, ACS_Journal, DataInputStream, DataOutputStream)}: the request's own
+ * streams, so the class reads its settings and writes what it gives back. Refused during an inspection, and
+ * for a class that is no structure or lacks that constructor, before anything is built. Answers the slot.
+ * */
+public int addStructure(DataInputStream parameters, DataOutputStream returns, String description, String comment) throws IOException {
+	if(journal.isInspecting()) { throw new IllegalStateException("an inspection stands; call endInspection before recording"); }
+	String className = ACS_Actor.readString(parameters);
+	Class<?> structureClass;
+	try { structureClass = Class.forName(className, false, getClass().getClassLoader()); }
+	catch(ClassNotFoundException e) { throw new IllegalArgumentException("no class " + className + " is on this database's class path"); }
+	if(!ACS_StructureComponentBase.class.isAssignableFrom(structureClass)) { throw new IllegalArgumentException(className + " is no structure"); }
+	Constructor<?> byStream = constructorOf(structureClass, ACS_Core.class, ACS_Journal.class, DataInputStream.class, DataOutputStream.class);
+	if(byStream == null) { throw new IllegalArgumentException(className + " takes no (ACS_Core, ACS_Journal, DataInputStream, DataOutputStream), so it cannot be built by name"); }
+	ACS_StructureComponentBase structure;
+	try { structure = (ACS_StructureComponentBase) byStream.newInstance(this, journal, parameters, returns); }
+	catch(InvocationTargetException e) {
+		if(e.getCause() instanceof RuntimeException failure) { throw failure; }
+		if(e.getCause() instanceof IOException failure) { throw failure; }
+		throw new IllegalStateException("cannot build " + className + ": " + e.getCause(), e.getCause());
+	} catch(ReflectiveOperationException e) { throw new IllegalArgumentException("cannot build " + className + ": " + e, e); }
+	int slot = getStructureCount();
+	addStructure(structure, description, comment);
+	return slot;
+}
+
 @Override
 public void addStructure(ACS_StructureComponentBase acseArityComponent, String description, String comment) { addComponent(structures, acseArityComponent, structureDescriptions, description, STRUCTURE, "addStructure", comment); }
 
@@ -501,6 +540,10 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 			case 4 -> delegateRemoval(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters));
 			case 5 -> returns.writeLong(captureIdentity(parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 6 -> returns.writeLong(captureIdentity(parameters.readInt(), parameters.readLong(), ACS_Actor.readString(parameters)));
+			case 7 -> {
+				String description = ACS_Actor.readString(parameters), comment = ACS_Actor.readString(parameters);
+				returns.writeInt(addStructure(parameters, returns, description, comment));
+			}
 			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
 		}
 	} catch(RuntimeException e) {

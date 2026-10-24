@@ -61,6 +61,11 @@ public PairListNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeAri
 	this.allowsParallelEdges = allowsParallelEdges;
 }
 
+/** Built by name through the core's addStructure: nodeArity, edgeArity, allowsLoops, allowsParallelEdges read from the request, in that order; nothing is written back. */
+public PairListNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

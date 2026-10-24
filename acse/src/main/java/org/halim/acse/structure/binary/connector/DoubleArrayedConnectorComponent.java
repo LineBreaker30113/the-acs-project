@@ -56,6 +56,11 @@ public DoubleArrayedConnectorComponent(ACS_Core core, ACS_Journal journal, int p
 	this.complementArity = complementArity;
 }
 
+/** Built by name through the core's addStructure: primaryArity, complementArity read from the request, in that order; nothing is written back. */
+public DoubleArrayedConnectorComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

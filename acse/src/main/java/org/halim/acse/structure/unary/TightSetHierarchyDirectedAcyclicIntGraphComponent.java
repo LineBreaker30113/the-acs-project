@@ -127,6 +127,11 @@ public TightSetHierarchyDirectedAcyclicIntGraphComponent(ACS_Core core, ACS_Jour
 	clear();
 }
 
+/** Built by name through the core's addStructure: arity read from the request, in that order; nothing is written back. */
+public TightSetHierarchyDirectedAcyclicIntGraphComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt());
+}
+
 void clear() {
 	this.hierarchy = new IntArrayList();
 	this.multiData = new ArrayList<>();

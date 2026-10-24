@@ -71,6 +71,11 @@ public SingleRoaringConnectorComponent(ACS_Core core, ACS_Journal journal, int p
 	this.persistentSize = persistentSize;
 }
 
+/** Built by name through the core's addStructure: persistentArity, volatileArity, persistentSize read from the request, in that order; nothing is written back. */
+public SingleRoaringConnectorComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readInt());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

@@ -20,7 +20,8 @@
         <module>acs</module>
         <module>acse</module>
         <module>acses</module>
-        <module>ontodirectory</module>
+        <!-- ontodirectory skipped for now: it still imports ACS_PersistenceManager from its former package -->
+        <!-- <module>ontodirectory</module> -->
         <module>acs-alhikmet</module>
         <module>acsah-viewer</module>
         <module>acsess-gui</module>

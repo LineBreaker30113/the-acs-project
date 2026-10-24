@@ -58,6 +58,11 @@ public BijectiveFunctionConnectorComponent(ACS_Core core, ACS_Journal journal, i
 	this.restrictions = restrictions;
 }
 
+/** Built by name through the core's addStructure: primaryArity, complementArity, restrictions read from the request, in that order; nothing is written back. */
+public BijectiveFunctionConnectorComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readInt());
+}
+
 
 @Override
 public int getArityIdentity(int index) {

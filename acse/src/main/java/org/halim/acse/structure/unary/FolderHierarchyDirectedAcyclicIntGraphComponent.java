@@ -59,6 +59,11 @@ public FolderHierarchyDirectedAcyclicIntGraphComponent(ACS_Core core, ACS_Journa
 	clear();
 }
 
+/** Built by name through the core's addStructure: arity read from the request, in that order; nothing is written back. */
+public FolderHierarchyDirectedAcyclicIntGraphComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
+	this(core, journal, parameters.readInt());
+}
+
 void clear() {
 	hierarchy = new IntArrayList();
 	multiData = new ArrayList<>();
