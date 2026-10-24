@@ -5,9 +5,9 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_DescriptionManager;
+import org.halim.acs.persistence.ACS_DescriptionManager;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acse.arity.ACSE_ComposableArityCatalog;
@@ -246,22 +246,22 @@ public String getStructureDescription(int structureIndex) { return structureDesc
 public void setStructureDescription(int structureIndex, String structureDescription) { structureDescriptions.set(structureIndex, structureDescription); }
 
 @Override
-public String getArityClassDescription(Class<? extends ACS_ArityComponentBase> arityClass) { return arityClassDescriptions.get(arityClass.getName()); }
+public String getArityClassDescription(String className) { return arityClassDescriptions.get(className); }
 
 @Override
-public void setArityClassDescription(Class<? extends ACS_ArityComponentBase> arityClass, String arityDescription) { arityClassDescriptions.put(arityClass.getName(), arityDescription); }
+public void setArityClassDescription(String className, String arityDescription) { arityClassDescriptions.put(className, arityDescription); }
 
 @Override
-public String getArityCatalogRowClassDescription(Class<? extends ACS_ArityCatalogRowBase> arityClass) { return catalogRowClassDescriptions.get(arityClass.getName()); }
+public String getArityCatalogRowClassDescription(String className) { return catalogRowClassDescriptions.get(className); }
 
 @Override
-public void setArityCatalogRowClassDescription(Class<? extends ACS_ArityCatalogRowBase> arityClass, String arityDescription) { catalogRowClassDescriptions.put(arityClass.getName(), arityDescription); }
+public void setArityCatalogRowClassDescription(String className, String arityDescription) { catalogRowClassDescriptions.put(className, arityDescription); }
 
 @Override
-public String getStructureClassDescription(Class<? extends ACS_StructureComponentBase> arityClass) { return structureClassDescriptions.get(arityClass.getName()); }
+public String getStructureClassDescription(String className) { return structureClassDescriptions.get(className); }
 
 @Override
-public void setStructureClassDescription(Class<? extends ACS_StructureComponentBase> arityClass, String arityDescription) { structureClassDescriptions.put(arityClass.getName(), arityDescription); }
+public void setStructureClassDescription(String className, String arityDescription) { structureClassDescriptions.put(className, arityDescription); }
 
 /** Throws for a slot out of range; the row is checked only against a live arity, since a removed one's row count went with it. */
 long rowKey(int arity, int row) {

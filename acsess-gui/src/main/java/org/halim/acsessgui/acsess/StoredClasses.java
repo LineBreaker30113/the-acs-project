@@ -32,7 +32,7 @@ import java.util.jar.Manifest;
  * rather than acsess's answers, so a folder another manager wrote is refused, naming that manager, and a
  * format this program does not know is refused rather than misread.
  * <p>
- * The code view's source comes from the same jar, through Vineflower: the class and its nested classes
+ * The class content's source comes from the same jar, through Vineflower: the class and its nested classes
  * are decompiled, and the jar is given as a library so the names they use resolve.
  * */
 public class StoredClasses {

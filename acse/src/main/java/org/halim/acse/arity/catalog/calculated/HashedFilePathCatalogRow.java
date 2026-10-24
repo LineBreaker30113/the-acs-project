@@ -2,7 +2,7 @@ package org.halim.acse.arity.catalog.calculated;
 
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
 
 import java.io.DataInputStream;

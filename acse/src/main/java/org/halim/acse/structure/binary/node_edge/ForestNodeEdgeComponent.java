@@ -1,13 +1,17 @@
 package org.halim.acse.structure.binary.node_edge;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
+import org.halim.acs.ACS_Requestable;
 import org.halim.acs.structure.ACS_StructureComponentBase;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 
@@ -40,6 +44,8 @@ public class ForestNodeEdgeComponent implements ACS_StructureComponentBase {
 static final byte SET = 1;
 /** [edge, node, parent, child count, child edges...]: takes the edge out, its children left without a parent. */
 static final byte DETACH = 2;
+/** Each request's method name by its code, read once from the marks, for the queries a read records. */
+static final String[] REQUESTS = requestNames(ForestNodeEdgeComponent.class);
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -82,20 +88,24 @@ public boolean isRelatedArity(int identity) { return identity == nodeArity || id
 
 
 /** The node's edge, or -1 before it takes part. */
+@ACS_Requestable(0)
 public int edgeOf(int node) { return node >= 0 && node < edgeOfNode.size() ? edgeOfNode.getInt(node) : -1; }
 
 /** The node an edge belongs to, or -1 for no edge here. */
+@ACS_Requestable(1)
 public int nodeOf(int edge) {
 	IntArrayList entry = entryOf(edge);
 	return entry == null ? -1 : entry.getInt(0);
 }
 
 /** The node's parent: 0 for none, and for a node that has not taken part. */
+@ACS_Requestable(2)
 public int parentOf(int node) {
 	IntArrayList entry = entryOf(edgeOf(node));
 	return entry == null ? 0 : entry.getInt(1);
 }
 
+@ACS_Requestable(3)
 public int childCount(int node) {
 	if(node == 0) { return topEdges().size(); }
 	IntArrayList entry = entryOf(edgeOf(node));
@@ -121,6 +131,7 @@ public void copyChildrenInto(int node, int[] dest, int offset) {
 }
 
 /** Whether {@code ancestor} is {@code node} or above it: a walk up its one chain of parents. */
+@ACS_Requestable(4)
 public boolean reaches(int ancestor, int node) {
 	for(int at = node; ; at = parentOf(at)) {
 		if(at == ancestor) { return true; }
@@ -142,6 +153,7 @@ IntArrayList topEdges() {
 
 
 /** The node's edge, captured through the core if it has none yet. */
+@ACS_Requestable(5)
 public int ensureEdge(int node, String comment) {
 	requireNode(node);
 	int held = edgeOf(node);
@@ -163,6 +175,7 @@ public int ensureEdge(int node, String comment) {
  * Moves the node under {@code parent}, 0 for none, capturing the node's edge and the parent's if either has
  * none yet. False when it is already there; a refusal when the parent is the node or below it.
  * */
+@ACS_Requestable(6)
 public boolean setParent(int node, int parent, String comment) {
 	requireNode(node);
 	if(node == 0) { throw new IllegalArgumentException("the root takes no parent"); }
@@ -185,6 +198,7 @@ public boolean setParent(int node, int parent, String comment) {
 	return true;
 }
 
+@ACS_Requestable(7)
 public boolean removeParent(int node, String comment) { return setParent(node, 0, comment); }
 
 /** An edge leaving its arity takes its node out, its children left without a parent; a node leaving its arity removes its edge through the core. */
@@ -353,6 +367,213 @@ void abort(int request) {
 void complete(int request) {
 	int completed = journal.completeRecordingActivity();
 	if(completed != request) { throw new IllegalStateException("began request " + request + ", completed " + completed); }
+}
+
+
+/** {@code first} becomes the parent of {@code last}, as {@link #setParent} moves it. False when it is; refused when {@code last} has another parent, since an element has one. */
+@ACS_Requestable(8)
+public boolean connectTo(int first, int last, String comment) {
+	if(isConnectedTo(first, last)) { return false; }
+	if(parentOf(last) != 0) { throw new IllegalArgumentException(last + " has the parent " + parentOf(last) + " already: one parent an element"); }
+	return setParent(last, first, comment);
+}
+
+/** {@code last} back to 0, as {@link #removeParent} moves it; false when {@code first} is not its parent. */
+@ACS_Requestable(9)
+public boolean disconnectFrom(int first, int last, String comment) { return first != 0 && parentOf(last) == first && removeParent(last, comment); }
+
+@ACS_Requestable(10)
+public boolean isConnectedTo(int first, int last) { return parentOf(last) == first && (first != 0 || (!skipFirstNode && last != 0)); }
+
+/** The children of {@code first}, in the order {@link #copyChildrenInto} gives them, for the outside: no request fills the caller's array. */
+@ACS_Requestable(11)
+public int[] lastsOf(int first) {
+	if(first == 0 && skipFirstNode) { return new int[0]; }
+	int[] children = new int[childCount(first)];
+	copyChildrenInto(first, children, 0);
+	return children;
+}
+
+/** The parent of {@code last}, one at most, as {@link #isConnectedTo} counts it. */
+@ACS_Requestable(12)
+public int[] firstsOf(int last) {
+	int parent = parentOf(last);
+	if(parent != 0) { return new int[] { parent }; }
+	return !skipFirstNode && last != 0 ? new int[] { 0 } : new int[0];
+}
+
+@ACS_Requestable(13)
+public int lastCount(int first) { return lastsOf(first).length; }
+
+@ACS_Requestable(14)
+public int firstCount(int last) { return firstsOf(last).length; }
+
+/**
+ * The children of {@code first} become {@code lasts}, a repeat counting once: every other child moved back
+ * to 0, then each new one moved under {@code first}, from wherever it was, as one request.
+ * Refused for 0, whose children are every element without a parent. False when nothing changes.
+ * */
+@ACS_Requestable(15)
+public boolean setLasts(int first, int[] lasts, String comment) {
+	if(first == 0) { throw new IllegalArgumentException("the elements without a parent are set by their own parents"); }
+	IntOpenHashSet kept = new IntOpenHashSet(lasts);
+	int[] held = lastsOf(first);
+	IntOpenHashSet had = new IntOpenHashSet(held);
+	if(kept.equals(had)) { return false; }
+	int request = journal.beginRecordingActivity(this, "setLasts", params, comment);
+	try {
+		for(int child : held) { if(!kept.contains(child)) { removeParent(child, null); } }
+		for(int child : lasts) { if(had.add(child)) { setParent(child, first, null); } }
+	} catch(RuntimeException | Error e) {
+		abort(request);
+		throw e;
+	}
+	complete(request);
+	return true;
+}
+
+/** The parent of {@code last} becomes the one of {@code firsts}, 0 not counted: {@link #setParent}, or {@link #removeParent} for none; more than one is refused. */
+@ACS_Requestable(16)
+public boolean setFirsts(int last, int[] firsts, String comment) {
+	IntOpenHashSet kept = new IntOpenHashSet(firsts);
+	kept.remove(0);
+	if(kept.size() > 1) { throw new IllegalArgumentException(last + " given " + kept.size() + " parents: one an element"); }
+	return kept.isEmpty() ? removeParent(last, comment) : setParent(last, kept.iterator().nextInt(), comment);
+}
+
+
+/**
+ * The requests, by code in the order of the marks: each reads its inputs, calls the public method, which
+ * keeps its checks, and writes the result. A read is recorded as a query: its method's name and inputs,
+ * then its answer, or its refusal; a list is answered by its length.
+ * */
+@Override
+public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
+	int code = parameters.readInt();
+	String query = null;
+	try {
+		switch(code) {
+			case 0 -> {
+				int node = parameters.readInt();
+				query = REQUESTS[code] + "(" + node + ")";
+				int value = edgeOf(node);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 1 -> {
+				int edge = parameters.readInt();
+				query = REQUESTS[code] + "(" + edge + ")";
+				int value = nodeOf(edge);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 2 -> {
+				int node = parameters.readInt();
+				query = REQUESTS[code] + "(" + node + ")";
+				int value = parentOf(node);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 3 -> {
+				int node = parameters.readInt();
+				query = REQUESTS[code] + "(" + node + ")";
+				int value = childCount(node);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 4 -> {
+				int ancestor = parameters.readInt(), node = parameters.readInt();
+				query = REQUESTS[code] + "(" + ancestor + ", " + node + ")";
+				boolean value = reaches(ancestor, node);
+				recordQuery(query, Boolean.toString(value));
+				returns.writeBoolean(value);
+			}
+			case 5 -> returns.writeInt(ensureEdge(parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 6 -> returns.writeBoolean(setParent(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 7 -> returns.writeBoolean(removeParent(parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 8 -> returns.writeBoolean(connectTo(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 9 -> returns.writeBoolean(disconnectFrom(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 10 -> {
+				int first = parameters.readInt(), last = parameters.readInt();
+				query = REQUESTS[code] + "(" + first + ", " + last + ")";
+				boolean value = isConnectedTo(first, last);
+				recordQuery(query, Boolean.toString(value));
+				returns.writeBoolean(value);
+			}
+			case 11 -> {
+				int first = parameters.readInt();
+				query = REQUESTS[code] + "(" + first + ")";
+				int[] value = lastsOf(first);
+				recordQuery(query, "int[" + value.length + "]");
+				writeInts(returns, value);
+			}
+			case 12 -> {
+				int last = parameters.readInt();
+				query = REQUESTS[code] + "(" + last + ")";
+				int[] value = firstsOf(last);
+				recordQuery(query, "int[" + value.length + "]");
+				writeInts(returns, value);
+			}
+			case 13 -> {
+				int first = parameters.readInt();
+				query = REQUESTS[code] + "(" + first + ")";
+				int value = lastCount(first);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 14 -> {
+				int last = parameters.readInt();
+				query = REQUESTS[code] + "(" + last + ")";
+				int value = firstCount(last);
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 15 -> returns.writeBoolean(setLasts(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			case 16 -> returns.writeBoolean(setFirsts(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
+		}
+	} catch(RuntimeException e) {
+		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
+		ACS_Actor.writeString(returns, reason(e));
+		return false;
+	}
+	return true;
+}
+
+
+void recordQuery(String request, String response) {
+	journal.recordQueryRequest(request);
+	journal.recordQueryResponse(response);
+}
+
+/** What a refused request writes back: the error's message, or its class when it has none. */
+static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
+
+/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
+static String[] requestNames(Class<?> actor) {
+	ArrayList<String> names = new ArrayList<>();
+	for(Method method : actor.getMethods()) {
+		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
+		if(mark == null || method.isBridge()) { continue; }
+		while(names.size() <= mark.value()) { names.add(null); }
+		names.set(mark.value(), method.getName());
+	}
+	return names.toArray(new String[0]);
+}
+
+/** An int[] on the wire: its length, then its elements. */
+static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
+	dos.writeInt(ints.length);
+	for(int value : ints) { dos.writeInt(value); }
+}
+
+/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
+static int[] readInts(DataInputStream dis) throws IOException {
+	int length = dis.readInt();
+	if(length < 0) { throw new IOException("int[] length " + length); }
+	IntArrayList ints = new IntArrayList();
+	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
+	return ints.toIntArray();
 }
 
 

@@ -34,7 +34,7 @@
             <artifactId>flatlaf-extras</artifactId>
             <version>3.5.4</version>
         </dependency>
-        <!-- The code view's decompiler, Apache-2.0. -->
+        <!-- The class content's decompiler, Apache-2.0. -->
         <dependency>
             <groupId>org.vineflower</groupId>
             <artifactId>vineflower</artifactId>

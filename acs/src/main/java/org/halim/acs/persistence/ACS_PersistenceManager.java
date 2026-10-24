@@ -1,4 +1,8 @@
-package org.halim.acs;
+package org.halim.acs.persistence;
+
+import org.halim.acs.ACS_Actor;
+import org.halim.acs.ACS_Core;
+import org.halim.acs.ACS_Journal;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -136,21 +140,10 @@ static String readHeader(DataInputStream dis, Path file) throws IOException {
 }
 
 
-/** A string that may be null, as its UTF-16 units, so any string - an unpaired surrogate included - comes back exactly. */
-static void writeString(DataOutputStream dos, String string) throws IOException {
-	if(string == null) { dos.writeInt(-1); return; }
-	dos.writeInt(string.length());
-	dos.writeChars(string);
-}
+/** A string that may be null, as {@link ACS_Actor#writeString} writes it, the one string form of ACS. */
+static void writeString(DataOutputStream dos, String string) throws IOException { ACS_Actor.writeString(dos, string); }
 
-static String readString(DataInputStream dis) throws IOException {
-	int length = dis.readInt();
-	if(length == -1) { return null; }
-	if(length < 0) { throw new IOException("string length " + length); }
-	char[] chars = new char[length];
-	for(int i = 0; i < length; i++) { chars[i] = dis.readChar(); }
-	return new String(chars);
-}
+static String readString(DataInputStream dis) throws IOException { return ACS_Actor.readString(dis); }
 
 /**
  * Writes the part's class as its number in the indexer, and answers whether the part's own data follows,

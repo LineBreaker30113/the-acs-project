@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.util.ArrayList;
 
 
-/** The toggles of the workspace's views, and the button opening a new content panel. */
+/** The toggles of the workspace's fundamental views, and the buttons opening a new lister and a new content panel. */
 public class WorkspaceSection extends JPanel {
 
 final ArrayList<JButton> buttons = new ArrayList<>();
@@ -18,13 +18,8 @@ public WorkspaceSection(LeftSidebar leftSidebar) {
 	setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 	toggle(leftSidebar, "Core", "hard-drives.svg", WorkspacePanel.coreVN);
 	toggle(leftSidebar, "Journal", "notebook.svg", WorkspacePanel.journalVN);
-	toggle(leftSidebar, "Classes", "files.svg", WorkspacePanel.classesVN);
-	toggle(leftSidebar, "Code", "note.svg", WorkspacePanel.codeVN);
-	toggle(leftSidebar, "Arities", "database.svg", WorkspacePanel.aritiesVN);
-	toggle(leftSidebar, "Arity Table", "files.svg", WorkspacePanel.arityTableVN);
-	toggle(leftSidebar, "Structures", "tree-view.svg", WorkspacePanel.structuresVN);
-	toggle(leftSidebar, "Structure", "tree-view.svg", WorkspacePanel.structureVN);
-	toggle(leftSidebar, "Procedures", "caret-right.svg", WorkspacePanel.proceduresVN);
+	JButton lister = place(Utilities.sidebarButton("Lister", "tree-view.svg", "tree-view.svg"));
+	lister.addActionListener(e -> leftSidebar.owner.workspacePanel.openListerPanel());
 	JButton content = place(Utilities.sidebarButton("Content", "house.svg", "house.svg"));
 	content.addActionListener(e -> leftSidebar.owner.workspacePanel.openContentPanel());
 	toggle(leftSidebar, "Request Console", "note.svg", WorkspacePanel.consoleVN);

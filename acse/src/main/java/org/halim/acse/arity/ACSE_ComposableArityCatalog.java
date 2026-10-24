@@ -3,7 +3,7 @@ package org.halim.acse.arity;
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
@@ -278,7 +278,7 @@ void flip(int catalog, long identity, long difference) {
 	}
 }
 
-static long join(int high, int low) { return (long) high << 32 | Integer.toUnsignedLong(low); }
+static long toLong(int high, int low) { return (long) high << 32 | Integer.toUnsignedLong(low); }
 
 void putCatalogRow(int catalog, ACS_ArityCatalogRowBase row) {
 	if(lastIndex >= 0) { row.ensureCapacity(lastIndex); }
@@ -397,8 +397,8 @@ public void doTraceableStep(byte stepPair, int[] params, int index) {
 		case -IDENTITY -> occupied.unsign(params[index]);
 		case CATALOG -> putCatalogRow(params[index], (ACS_ArityCatalogRowBase) journal.getObject(params[index + 1]));
 		case -CATALOG -> catalogRows.set(params[index], null);
-		case WRITE, -WRITE -> flip(params[index], join(params[index + 1], params[index + 2]), join(params[index + 3], params[index + 4]));
-		case TEXT, -TEXT -> flipText(params[index], join(params[index + 1], params[index + 2]), (char[]) journal.getObject(params[index + 3]), stepPair == TEXT ? params[index + 4] : -params[index + 4]);
+		case WRITE, -WRITE -> flip(params[index], toLong(params[index + 1], params[index + 2]), toLong(params[index + 3], params[index + 4]));
+		case TEXT, -TEXT -> flipText(params[index], toLong(params[index + 1], params[index + 2]), (char[]) journal.getObject(params[index + 3]), stepPair == TEXT ? params[index + 4] : -params[index + 4]);
 		default -> throw new IllegalArgumentException("no step " + stepPair);
 	}
 }

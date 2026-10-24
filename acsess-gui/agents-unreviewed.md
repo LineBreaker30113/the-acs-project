@@ -66,3 +66,26 @@
   since a store numbers the classes anew.
   Complements: (root 72) keeping the queried data in memory.
   Section: Views
+- Verbatim: We do not need all of the views to be on the left, since most of them will be type of
+  content views. Instead we need to make a new content view button along side few fundamental views of
+  "core", "journal", "listers" (can become any type of lister like arities or structures), "content"
+  (shows content of a selected list). [Content is that button:] yes, lister and content for listing and
+  viewing, also a [the console stays]. [What a lister lists:] c [arities, structures, classes,
+  procedures], ii [any number open]. [A lister's click:] a [it focuses; a click on the focused element
+  gives it to the content panels]. *(2026-10-24)*
+  Conflicts: the unreviewed Views entry of 2026-10-23: its views leave the sidebar.
+  Section: Views
+- Verbatim: Forget the former readings, most recent is the source, the arity-row is moved into the arity
+  content, more on that later. [The structures plane:] it is a content panel, bound to core. [Asked
+  whether it takes no element and replaces the structures view:] no, it meant to be content panel, name
+  it "structures". There will be three views related to arities: Arity List, Arity Summary, Arity
+  Content. Pick the Arity from the Arity list, then the summary is shown on the Arity Summary and you can
+  edit values from the arity content view, which is two options of the content view, the "arity row" and
+  "arity element". [A structure:] two separate goals, forget to tell, what you said is "structure
+  summary" vs "structure content". [Capturing and deleting identities, in the Core view or an arity
+  row:] no, the arity summary view must do it. [An] element can be picked by typing its number, for row
+  it is (a) [the arity summary lists the rows, each clicked and dragged]. *(2026-10-24)*
+  Meaning: the content kinds are arity summary, arity row, arity element, structures, structure summary,
+  structure content, procedure, class; one panel a kind.
+  Conflicts: the unreviewed Content panels entry of 2026-10-23: its five types.
+  Section: Content panels

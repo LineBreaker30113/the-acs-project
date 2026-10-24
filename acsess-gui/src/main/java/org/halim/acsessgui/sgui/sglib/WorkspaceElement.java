@@ -15,18 +15,19 @@ import java.util.function.Predicate;
 
 /**
  * An element of the shown database a view shows and a content panel can take: an arity, a structure, a
- * procedure, a row of an arity or an identity of one, named by its slots. A field its type does not use
- * holds -1 and is never read, since an identity may itself be -1.
+ * procedure, a row of an arity, an identity of one, or a stored class, named by its slots or its name. A
+ * field its type does not use holds -1, or null for the name, and is never read, since an identity may
+ * itself be -1.
  * <p>
  * A click on an element focuses it; a click on the element already focused gives it to the content panel
  * listening for its type; a drag carries it onto one panel, changing no other. {@link Transfer} carries
  * the clicks and the drags of every view alike.
  * */
-public record WorkspaceElement(Type type, int arity, int row, long identity, int structure) {
+public record WorkspaceElement(Type type, int arity, int row, long identity, int structure, String className) {
 
-/** The content panels' selection, in its order; the label is what the selection shows. */
+/** What an element is; the label names it in what the panels print. */
 public enum Type {
-	ARITY("arity"), STRUCTURE("structure"), PROCEDURE("procedure"), ARITY_ROW("arity-row"), ARITY_IDENTITY("arity-identity");
+	ARITY("arity"), STRUCTURE("structure"), PROCEDURE("procedure"), ARITY_ROW("arity-row"), ARITY_IDENTITY("arity-identity"), CLASS("class");
 
 	public final String label;
 
@@ -35,13 +36,15 @@ public enum Type {
 	@Override public String toString() { return label; }
 }
 
-public static WorkspaceElement arity(int arity) { return new WorkspaceElement(Type.ARITY, arity, -1, -1, -1); }
+public static WorkspaceElement arity(int arity) { return new WorkspaceElement(Type.ARITY, arity, -1, -1, -1, null); }
 
-public static WorkspaceElement structure(int structure) { return new WorkspaceElement(Type.STRUCTURE, -1, -1, -1, structure); }
+public static WorkspaceElement structure(int structure) { return new WorkspaceElement(Type.STRUCTURE, -1, -1, -1, structure, null); }
 
-public static WorkspaceElement row(int arity, int row) { return new WorkspaceElement(Type.ARITY_ROW, arity, row, -1, -1); }
+public static WorkspaceElement row(int arity, int row) { return new WorkspaceElement(Type.ARITY_ROW, arity, row, -1, -1, null); }
 
-public static WorkspaceElement identity(int arity, long identity) { return new WorkspaceElement(Type.ARITY_IDENTITY, arity, -1, identity, -1); }
+public static WorkspaceElement identity(int arity, long identity) { return new WorkspaceElement(Type.ARITY_IDENTITY, arity, -1, identity, -1, null); }
+
+public static WorkspaceElement javaClass(String className) { return new WorkspaceElement(Type.CLASS, -1, -1, -1, -1, className); }
 
 @Override
 public String toString() {
@@ -51,6 +54,7 @@ public String toString() {
 		case PROCEDURE -> "procedure";
 		case ARITY_ROW -> "row " + row + " of arity " + arity;
 		case ARITY_IDENTITY -> "identity " + identity + " of arity " + arity;
+		case CLASS -> "class " + className;
 	};
 }
 

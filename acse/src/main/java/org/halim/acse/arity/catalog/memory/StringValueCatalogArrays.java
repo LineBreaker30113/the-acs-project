@@ -2,7 +2,7 @@ package org.halim.acse.arity.catalog.memory;
 
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.LongChunkInt;
 import org.halim.acs.arity.catalog.StringValueCatalog;
 

@@ -65,15 +65,6 @@ Markdown files.
     growing: a fixed stride for B in place of |B|, holes where B is short. Sparse: mint a pair
     identity only when the pair exists, with a ternary structure holding (pair, a, b).
 
-## Journal
-
-- **Should the journal get a "not undoable, can be ignored" step?**
-  - Author: "until we had "0" as "Not undoable", and the one left open was "-128", what about we
-    adding a "Not undoable, can be ignored."?" … "I still didn't decide on the "Break undo history",
-    I just have an suggestion of an improvement."
-  - Claude: use -128, the one byte with no inverse: undo and redo skip it, and undo history stays
-    intact. About two lines in the journal.
-
 ## ACSES
 
 - **How should the daemon's socket, lock and log be placed for good?**

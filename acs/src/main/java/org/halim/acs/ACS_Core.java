@@ -2,6 +2,7 @@ package org.halim.acs;
 
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.structure.ACS_StructureComponentBase;
 
 import java.io.IOException;

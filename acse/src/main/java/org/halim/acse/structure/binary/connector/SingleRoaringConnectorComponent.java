@@ -1,8 +1,11 @@
 package org.halim.acse.structure.binary.connector;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
+import org.halim.acs.ACS_Requestable;
 import org.halim.acs.structure.binary.connector.ACS_ConnectorComponentBase;
 import org.roaringbitmap.IntIterator;
 import org.roaringbitmap.PeekableIntIterator;
@@ -11,6 +14,8 @@ import org.roaringbitmap.RoaringBitmap;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 
 
 /**
@@ -42,6 +47,8 @@ public class SingleRoaringConnectorComponent implements ACS_ConnectorComponentBa
 
 /** The connection (persistent, volatile); the negative pair breaks it. */
 static final byte CONNECT = 1;
+/** Each request's method name by its code, read once from the marks, for the queries a read records. */
+static final String[] REQUESTS = requestNames(SingleRoaringConnectorComponent.class);
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -73,6 +80,10 @@ public int getArityIdentity(int index) {
 		default -> throw new IndexOutOfBoundsException("arity " + index + " of an indexer over two");
 	};
 }
+
+/** One index holds one connection, so none repeats; no other restriction is kept. */
+@Override
+public int getRestrictions() { return NO_REPEATS; }
 
 public int getPersistentSize() { return persistentSize; }
 
@@ -141,6 +152,7 @@ int held(int persistentIdentity, int volatileIdentity) {
 }
 
 
+@ACS_Requestable(0)
 @Override
 public boolean isConnected(int persistentIdentity, int volatileIdentity) {
 	long index = indexOf(persistentIdentity, volatileIdentity);
@@ -148,12 +160,14 @@ public boolean isConnected(int persistentIdentity, int volatileIdentity) {
 }
 
 /** A probe per volatile identity up to the highest connected one. */
+@ACS_Requestable(5)
 @Override
 public int complementCount(int persistentIdentity) {
 	return volatilesOf(persistentIdentity).size();
 }
 
 /** One range count over the volatile identity's run. */
+@ACS_Requestable(6)
 @Override
 public int primaryCount(int volatileIdentity) {
 	long start = indexOf(0, volatileIdentity);
@@ -183,6 +197,7 @@ public void copyPrimariesInto(int volatileIdentity, int[] dest, int offset) {
 }
 
 
+@ACS_Requestable(1)
 @Override
 public boolean ensureConnection(int persistentIdentity, int volatileIdentity, String comment) {
 	requireLive(persistentArity, persistentIdentity);
@@ -195,11 +210,46 @@ public boolean ensureConnection(int persistentIdentity, int volatileIdentity, St
 	return true;
 }
 
+@ACS_Requestable(2)
 @Override
 public boolean breakConnection(int persistentIdentity, int volatileIdentity, String comment) {
 	if(!isConnected(persistentIdentity, volatileIdentity)) { return false; }
 	int request = journal.beginRecordingActivity(this, "breakConnection", params, comment);
 	disconnect(persistentIdentity, volatileIdentity);
+	complete(request);
+	return true;
+}
+
+/** Every other connection of the persistent identity broken, then the new one made unless it was there, as one request; fitting first, as {@link #ensureConnection} does. */
+@ACS_Requestable(3)
+@Override
+public boolean setComplement(int persistentIdentity, int volatileIdentity, String comment) {
+	requireLive(persistentArity, persistentIdentity);
+	requireLive(volatileArity, volatileIdentity);
+	IntArrayList others = volatilesOf(persistentIdentity);
+	boolean held = others.rem(volatileIdentity);
+	if(held && others.isEmpty()) { return false; }
+	if(!held) { fit(persistentIdentity, volatileIdentity); }
+	int request = journal.beginRecordingActivity(this, "setComplement", params, comment);
+	for(int i = 0; i < others.size(); i++) { disconnect(persistentIdentity, others.getInt(i)); }
+	if(!held) { connect(persistentIdentity, volatileIdentity); }
+	complete(request);
+	return true;
+}
+
+/** As {@link #setComplement}, from the volatile identity's run. */
+@ACS_Requestable(4)
+@Override
+public boolean setPrimary(int volatileIdentity, int persistentIdentity, String comment) {
+	requireLive(volatileArity, volatileIdentity);
+	requireLive(persistentArity, persistentIdentity);
+	IntArrayList others = persistentsOf(volatileIdentity);
+	boolean held = others.rem(persistentIdentity);
+	if(held && others.isEmpty()) { return false; }
+	if(!held) { fit(persistentIdentity, volatileIdentity); }
+	int request = journal.beginRecordingActivity(this, "setPrimary", params, comment);
+	for(int i = 0; i < others.size(); i++) { disconnect(others.getInt(i), volatileIdentity); }
+	if(!held) { connect(persistentIdentity, volatileIdentity); }
 	complete(request);
 	return true;
 }
@@ -314,6 +364,188 @@ void requireLive(int arity, int identity) {
 void complete(int request) {
 	int completed = journal.completeRecordingActivity();
 	if(completed != request) { throw new IllegalStateException("began request " + request + ", completed " + completed); }
+}
+
+
+/** {@link #ensureConnection}, as elements-clusters names it: the element is the primary, the cluster the complement. */
+@ACS_Requestable(7)
+@Override
+public boolean cluster(int element, int cluster, String comment) { return ensureConnection(element, cluster, comment); }
+
+/** {@link #breakConnection}, as elements-clusters names it. */
+@ACS_Requestable(8)
+@Override
+public boolean uncluster(int element, int cluster, String comment) { return breakConnection(element, cluster, comment); }
+
+/** {@link #isConnected}, as elements-clusters names it. */
+@ACS_Requestable(9)
+@Override
+public boolean isClustered(int element, int cluster) { return isConnected(element, cluster); }
+
+/** The element's clusters, in the order {@link #copyComplementsInto} gives them, for the outside: no request fills the caller's array. */
+@ACS_Requestable(10)
+@Override
+public int[] clustersOf(int element) {
+	int[] clusters = new int[complementCount(element)];
+	copyComplementsInto(element, clusters, 0);
+	return clusters;
+}
+
+/** The cluster's elements, in the order {@link #copyPrimariesInto} gives them. */
+@ACS_Requestable(11)
+@Override
+public int[] elementsOf(int cluster) {
+	int[] elements = new int[primaryCount(cluster)];
+	copyPrimariesInto(cluster, elements, 0);
+	return elements;
+}
+
+@ACS_Requestable(12)
+@Override
+public int clusterCount(int element) { return complementCount(element); }
+
+@ACS_Requestable(13)
+@Override
+public int elementCount(int cluster) { return primaryCount(cluster); }
+
+/**
+ * The element's clusters become {@code clusters}, a repeat counting once: every other one broken, then each
+ * new one connected, as one request, so nothing is refused for what breaks only midway. False when
+ * nothing changes.
+ * */
+@ACS_Requestable(14)
+@Override
+public boolean setClusters(int element, int[] clusters, String comment) {
+	requireLive(persistentArity, element);
+	for(int cluster : clusters) { requireLive(volatileArity, cluster); }
+	IntOpenHashSet wanted = new IntOpenHashSet(clusters);
+	int[] held = clustersOf(element);
+	if(wanted.equals(new IntOpenHashSet(held))) { return false; }
+	// Fitting first, outside the request, as ensureConnection does.
+	for(int cluster : clusters) { if(!isConnected(element, cluster)) { fit(element, cluster); } }
+	int request = journal.beginRecordingActivity(this, "setClusters", params, comment);
+	try {
+		for(int cluster : held) { if(!wanted.contains(cluster)) { disconnect(element, cluster); } }
+		for(int cluster : clusters) { if(!isConnected(element, cluster)) { connect(element, cluster); } }
+	} catch(RuntimeException | Error e) {
+		journal.abortRecordingActivity();
+		throw e;
+	}
+	complete(request);
+	return true;
+}
+
+/** As {@link #setClusters}, from the cluster's side. */
+@ACS_Requestable(15)
+@Override
+public boolean setElements(int cluster, int[] elements, String comment) {
+	requireLive(volatileArity, cluster);
+	for(int element : elements) { requireLive(persistentArity, element); }
+	IntOpenHashSet wanted = new IntOpenHashSet(elements);
+	int[] held = elementsOf(cluster);
+	if(wanted.equals(new IntOpenHashSet(held))) { return false; }
+	for(int element : elements) { if(!isConnected(element, cluster)) { fit(element, cluster); } }
+	int request = journal.beginRecordingActivity(this, "setElements", params, comment);
+	try {
+		for(int element : held) { if(!wanted.contains(element)) { disconnect(element, cluster); } }
+		for(int element : elements) { if(!isConnected(element, cluster)) { connect(element, cluster); } }
+	} catch(RuntimeException | Error e) {
+		journal.abortRecordingActivity();
+		throw e;
+	}
+	complete(request);
+	return true;
+}
+
+
+/**
+ * The requests, by code in the order of the marks: each reads its inputs, calls the public method, which
+ * keeps its checks, and writes the result. A read is recorded as a query: its method's name and inputs,
+ * then its answer, or its refusal; a list is answered by its length.
+ * */
+@Override
+public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
+	int code = parameters.readInt();
+	String query = null;
+	try {
+		switch(code) {
+			case 0, 9 -> {
+				int primary = parameters.readInt(), complement = parameters.readInt();
+				query = REQUESTS[code] + "(" + primary + ", " + complement + ")";
+				boolean value = code == 0 ? isConnected(primary, complement) : isClustered(primary, complement);
+				recordQuery(query, Boolean.toString(value));
+				returns.writeBoolean(value);
+			}
+			case 1 -> returns.writeBoolean(ensureConnection(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 2 -> returns.writeBoolean(breakConnection(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 3 -> returns.writeBoolean(setComplement(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 4 -> returns.writeBoolean(setPrimary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 5, 6, 12, 13 -> {
+				int identity = parameters.readInt();
+				query = REQUESTS[code] + "(" + identity + ")";
+				int value = switch(code) {
+					case 5 -> complementCount(identity);
+					case 6 -> primaryCount(identity);
+					case 12 -> clusterCount(identity);
+					default -> elementCount(identity);
+				};
+				recordQuery(query, Integer.toString(value));
+				returns.writeInt(value);
+			}
+			case 7 -> returns.writeBoolean(cluster(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 8 -> returns.writeBoolean(uncluster(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 10, 11 -> {
+				int identity = parameters.readInt();
+				query = REQUESTS[code] + "(" + identity + ")";
+				int[] value = code == 10 ? clustersOf(identity) : elementsOf(identity);
+				recordQuery(query, "int[" + value.length + "]");
+				writeInts(returns, value);
+			}
+			case 14 -> returns.writeBoolean(setClusters(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			case 15 -> returns.writeBoolean(setElements(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
+		}
+	} catch(RuntimeException e) {
+		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
+		ACS_Actor.writeString(returns, reason(e));
+		return false;
+	}
+	return true;
+}
+
+void recordQuery(String request, String response) {
+	journal.recordQueryRequest(request);
+	journal.recordQueryResponse(response);
+}
+
+/** What a refused request writes back: the error's message, or its class when it has none. */
+static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
+
+/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
+static String[] requestNames(Class<?> actor) {
+	ArrayList<String> names = new ArrayList<>();
+	for(Method method : actor.getMethods()) {
+		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
+		if(mark == null || method.isBridge()) { continue; }
+		while(names.size() <= mark.value()) { names.add(null); }
+		names.set(mark.value(), method.getName());
+	}
+	return names.toArray(new String[0]);
+}
+
+/** An int[] on the wire: its length, then its elements. */
+static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
+	dos.writeInt(ints.length);
+	for(int value : ints) { dos.writeInt(value); }
+}
+
+/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
+static int[] readInts(DataInputStream dis) throws IOException {
+	int length = dis.readInt();
+	if(length < 0) { throw new IOException("int[] length " + length); }
+	IntArrayList ints = new IntArrayList();
+	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
+	return ints.toIntArray();
 }
 
 

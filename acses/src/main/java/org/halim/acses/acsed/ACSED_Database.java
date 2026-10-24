@@ -1,9 +1,9 @@
 package org.halim.acses.acsed;
 
 import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_DescriptionManager;
+import org.halim.acs.persistence.ACS_DescriptionManager;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
@@ -34,6 +34,8 @@ final String name;
 final Path folder;
 final ACS_PersistenceManager manager;
 final ACS_Core core;
+/** The timeout of the inspection standing, in milliseconds, 0 for none or no inspection, and the System.nanoTime it ends at. */
+long inspectionTimeout, inspectionUntil;
 
 ACSED_Database(ACSED_Commands commands, int index, String name, Path folder, ACS_PersistenceManager manager, ACS_Core core) {
 	this.commands = commands;
@@ -45,9 +47,10 @@ ACSED_Database(ACSED_Commands commands, int index, String name, Path folder, ACS
 }
 
 
-/** The command the parameters name, by code in the order of the marks; null for a wait the daemon now holds. */
+/** The command the parameters name, by code in the order of the marks; null for a wait the daemon now holds. acquire, code 4, and waitInspectionReturn, code 8, take a timeout. */
 Answer run(DataInputStream parameters) throws IOException {
 	int code = parameters.readInt();
+	if(code != 4 && code != 8) { commands.untimed(); }
 	return switch(code) {
 		case 0 -> {
 			String comment = commands.noted(ACSED_Request.readString(parameters));
@@ -243,12 +246,12 @@ public String unloadDB(String comment) throws IOException {
 	return "unloaded " + name + ", not stored";
 }
 
-/** Acquires the database, as acquire under acsed acquires the daemon: from here on every frame addressing it must carry the key it answers. */
+/** Acquires the database, as acquire under acsed acquires the daemon: from here on every frame addressing it must carry the key it answers, until it is released or its timeout passes. */
 @ACS_Requestable(4)
 public String acquire(boolean changesOnly, String comment) {
 	if(commands.daemonAcquisition != null) { throw new IllegalStateException("the daemon is acquired already"); }
 	if(commands.acquisitions.containsKey(index)) { throw new IllegalStateException(name + " is acquired already"); }
-	ACSED_Commands.Acquisition acquisition = new ACSED_Commands.Acquisition(commands.newKey(), changesOnly);
+	ACSED_Commands.Acquisition acquisition = ACSED_Commands.Acquisition.of(commands.newKey(), changesOnly, commands.timeoutFor("acquire"));
 	commands.acquisitions.put(index, acquisition);
 	return acquisition.key();
 }
@@ -273,17 +276,20 @@ public String inspectionState(String comment) {
 }
 
 /**
- * During an inspection, gives back null, and the daemon holds the client until a journal request ends the
- * inspection, or unloadDB, migrate or shutdown refuses it; holding takes no thread, so other connections go
- * on meanwhile. Without an inspection, the return has happened, and it answers at once. In a connection of
- * several frames it cannot hold, so it is refused there during an inspection.
+ * During an inspection, gives back null, and the daemon holds the client until a journal request or the
+ * inspection's timeout ends the inspection, or the wait's own timeout, unloadDB, migrate or shutdown
+ * refuses it; holding takes no thread, so other connections go on meanwhile. Without an inspection, the
+ * return has happened, and it answers at once. In a connection of several frames it cannot hold, so it is
+ * refused there during an inspection.
  * */
 @ACS_Requestable(8)
 public String waitInspectionReturn(String comment) {
+	long timeout = commands.timeoutFor("waitInspectionReturn");
 	ACS_Journal journal = core.getJournal();
 	if(!journal.isInspecting()) { return name + " is not under inspection: " + ACSED_Commands.position(core); }
 	if(commands.several) { throw new IllegalStateException(name + " is under inspection, and a wait among several frames cannot hold"); }
 	commands.holding = this;
+	commands.holdingTimeout = timeout;
 	return null;
 }
 

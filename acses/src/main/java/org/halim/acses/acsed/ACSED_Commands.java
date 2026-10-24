@@ -2,7 +2,7 @@ package org.halim.acses.acsed;
 
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_PersistenceManager;
+import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acse.ACSE_CoreBasic;
 import org.halim.acse.ACSE_PersistenceManagerBasic;
@@ -46,11 +46,21 @@ import java.util.stream.Stream;
  * acse-language.txt; bytes it leaves unread refuse it after it ran. A refused command leaves the databases
  * held as they were. Paths must be absolute, since the daemon's working folder is not the caller's and a
  * relative path would name another place.
+ * <p>
+ * The sensitive commands - acquire, the daemon's and a database's, waitInspectionReturn, and a request
+ * that starts an inspection - take their frame's timeout, else the boot's default; once it passes,
+ * {@link #expire} ends what they started: the acquisition is let go, the wait refused, the inspection
+ * ended as endInspection ends it. Booted with +forbidDefaultTimeout, a sensitive command without a timeout
+ * is refused; an inspection shows only once its request ran, so that one is ended again and refused. acsed's
+ * other commands refuse a timeout; an actor's request that starts no inspection leaves it unused.
  * */
 class ACSED_Commands {
 
 /** Where this daemon listens, for boot's first answer; the log, the lock and the two files acsess reads sit beside it. */
 final Path socket;
+/** The boot's timeout for a sensitive command whose frame gives none, in milliseconds, 0 for none; and whether the boot forbade one. */
+final long defaultTimeout;
+final boolean forbidDefault;
 /** By name, in the order they came. */
 final LinkedHashMap<String, ACSED_Database> databases = new LinkedHashMap<>();
 /** By index, a slot per database ever held: an unloaded one leaves null, so no index is given twice while acsed runs and a stale one reaches no other database. */
@@ -65,8 +75,9 @@ boolean stopping;
 final LinkedHashMap<ACSED_Database, ArrayList<Held>> waiting = new LinkedHashMap<>();
 /** Held clients whose answer is ready, for the daemon to send once the current connection is answered. */
 final ArrayList<Held> ready = new ArrayList<>();
-/** The database the last wait holds for, until the daemon hands its client to {@link #hold}. */
+/** The database the last wait holds for, and the wait's timeout, until the daemon hands its client to {@link #hold}. */
 ACSED_Database holding;
+long holdingTimeout;
 /** The acquisition on the whole daemon, null when there is none; it and a database's acquisition never stand together, since a frame carries one key. */
 Acquisition daemonAcquisition;
 /** The acquisitions on databases, by index. */
@@ -81,7 +92,11 @@ String comment;
 /** The outcome of the frame just run, for its log line. */
 String outcome;
 
-ACSED_Commands(Path socket) { this.socket = socket; }
+ACSED_Commands(Path socket, long defaultTimeout, boolean forbidDefault) {
+	this.socket = socket;
+	this.defaultTimeout = defaultTimeout;
+	this.forbidDefault = forbidDefault;
+}
 
 
 /** acsed's own language, beside the lock: its commands under subject -1, then a database's under the database's acsed type. */
@@ -143,6 +158,7 @@ ArrayList<Answer> run(ACSED_Request.Connection connection, ArrayList<String> not
 Answer runFrame(Frame one) {
 	frame = one;
 	try {
+		if(one.timeout() < 0) { throw new IllegalArgumentException("timeout " + one.timeout() + ": a timeout is a positive number of milliseconds"); }
 		if(one.subject() == ACSED_Request.ACSED) { return acsed(parameters(one)); }
 		ACSED_Database database = database(one.subject());
 		if(one.type() == ACSED_Request.ACSED) {
@@ -157,7 +173,8 @@ Answer runFrame(Frame one) {
  * An actor's request: refused when the actor's class is not at the frame's place in the database's
  * acse-language.txt, since the frame was then translated by another class's lines; refused after it ran
  * when it left bytes of its parameters unread, the change it made staying. A journal request that ends an
- * inspection answers the waits held for the database.
+ * inspection answers the waits held for the database; one that starts an inspection gives it its timeout,
+ * or, refused one, ends it again.
  * */
 Answer actor(ACSED_Database database, Frame one) throws IOException {
 	ACS_Actor actor = actorOf(database.core, one.type(), one.index());
@@ -169,14 +186,29 @@ Answer actor(ACSED_Database database, Frame one) throws IOException {
 	ByteArrayOutputStream returns = new ByteArrayOutputStream();
 	boolean inspecting = database.core.getJournal().isInspecting();
 	boolean done = actor.request(new DataInputStream(bytes), new DataOutputStream(returns));
-	if(inspecting && !database.core.getJournal().isInspecting()) { answerWaits(database, done(database.name + " returned: " + position(database.core))); }
+	boolean inspectingNow = database.core.getJournal().isInspecting();
+	if(inspecting && !inspectingNow) {
+		database.inspectionTimeout = 0;
+		answerWaits(database, done(database.name + " returned: " + position(database.core)));
+	}
+	if(!inspecting && inspectingNow) {
+		long timeout;
+		try { timeout = timeoutFor("a request starting an inspection"); }
+		catch(IllegalArgumentException e) {
+			database.core.getJournal().endInspection();
+			throw new IllegalStateException(e.getMessage() + "; the inspection it started is ended");
+		}
+		database.inspectionTimeout = timeout;
+		database.inspectionUntil = until(timeout);
+	}
+	String unused = one.timeout() != 0 && (inspecting || !inspectingNow) ? " (timeout unused)" : "";
 	if(bytes.available() > 0) { throw new IllegalStateException("the request ran, but left " + bytes.available() + " bytes of its parameters unread; its change stays"); }
 	if(done) {
-		outcome = "done";
+		outcome = "done" + unused;
 		return new Answer(ACSED_Request.DONE, returns.toByteArray());
 	}
 	Answer answer = new Answer(ACSED_Request.REFUSED, returns.toByteArray());
-	outcome = "refused: " + firstLine(ACSED_Request.readString(new DataInputStream(new ByteArrayInputStream(answer.returns()))));
+	outcome = "refused: " + firstLine(ACSED_Request.readString(new DataInputStream(new ByteArrayInputStream(answer.returns())))) + unused;
 	return answer;
 }
 
@@ -193,9 +225,10 @@ static ACS_Actor actorOf(ACS_Core core, int type, int index) {
 	return actor;
 }
 
-/** acsed's commands under subject -1, by code in the order of the marks. */
+/** acsed's commands under subject -1, by code in the order of the marks; acquire, code 4, is the one taking a timeout. */
 Answer acsed(DataInputStream parameters) throws IOException {
 	int code = parameters.readInt();
+	if(code != 4) { untimed(); }
 	return switch(code) {
 		case 0 -> {
 			String comment = noted(ACSED_Request.readString(parameters));
@@ -244,7 +277,7 @@ Answer acsed(DataInputStream parameters) throws IOException {
 @ACS_Requestable(0)
 public String boot(String comment) {
 	long pid = ProcessHandle.current().pid();
-	String answer = booted ? "running, pid " + pid : "started, pid " + pid + ", socket " + socket;
+	String answer = (booted ? "running, pid " + pid : "started, pid " + pid + ", socket " + socket) + ", " + timeouts();
 	booted = true;
 	return answer;
 }
@@ -311,12 +344,13 @@ public String databases(String comment) {
  * request meant for another state of things is refused rather than run. It is for operational safety, not
  * security: the log shows the key. With +changesOnly the commands that only read go without it. An
  * acquisition where one stands already is refused, a database's included, since a frame carries one key.
+ * Its timeout lets it go, as if released, once it passes.
  * */
 @ACS_Requestable(4)
 public String acquire(boolean changesOnly, String comment) {
 	if(daemonAcquisition != null) { throw new IllegalStateException("the daemon is acquired already"); }
 	if(!acquisitions.isEmpty()) { throw new IllegalStateException("databases are acquired: " + String.join(", ", acquired())); }
-	daemonAcquisition = new Acquisition(newKey(), changesOnly);
+	daemonAcquisition = Acquisition.of(newKey(), changesOnly, timeoutFor("acquire"));
 	return daemonAcquisition.key();
 }
 
@@ -356,9 +390,9 @@ void remove(ACSED_Database database) throws IOException {
 	writeDatabases();
 }
 
-/** Takes the client of the wait just answered with null. */
-void hold(Held held) {
-	waiting.computeIfAbsent(holding, database -> new ArrayList<>()).add(held);
+/** Takes the client of the wait just answered with null, under the wait's timeout. */
+void hold(SocketChannel client, OffsetDateTime time, String note) {
+	waiting.computeIfAbsent(holding, database -> new ArrayList<>()).add(new Held(client, time, note, holdingTimeout));
 	holding = null;
 }
 
@@ -371,6 +405,73 @@ void answerWaits(ACSED_Database database, Answer answer) {
 		one.outcome = answer.status() == ACSED_Request.DONE ? "done: " + firstLine(text(answer)) : "refused: " + firstLine(text(answer));
 	}
 	ready.addAll(held);
+}
+
+/** The timeout of the frame running, in milliseconds: its own, else the boot's default, 0 for none; refused when the boot forbade the default and the frame gives none. */
+long timeoutFor(String command) {
+	if(frame.timeout() > 0) { return frame.timeout(); }
+	if(forbidDefault) { throw new IllegalArgumentException(command + " needs timeout=<ms>, since acsed was booted with +forbidDefaultTimeout"); }
+	return defaultTimeout;
+}
+
+/** Refuses a timeout on one of acsed's commands that starts nothing a timeout could end. */
+void untimed() {
+	if(frame.timeout() != 0) { throw new IllegalArgumentException("this command starts nothing a timeout could end, so it takes no timeout="); }
+}
+
+String timeouts() { return forbidDefault ? "every sensitive command must give timeout=" : defaultTimeout > 0 ? "default timeout " + defaultTimeout + " ms" : "no default timeout"; }
+
+/** The System.nanoTime a timeout of that many milliseconds ends at, from now; unused for 0. */
+static long until(long timeout) { return System.nanoTime() + Math.multiplyExact(timeout, 1_000_000L); }
+
+/**
+ * Ends what has outlived its timeout and gives a log line for each: an acquisition is let go, a held wait
+ * refused, an inspection ended through the journal, which answers the waits held for it. The answers go to
+ * {@link #ready}, for the daemon to send.
+ * */
+List<String> expire() {
+	long now = System.nanoTime();
+	ArrayList<String> lines = new ArrayList<>();
+	if(daemonAcquisition != null && daemonAcquisition.expired(now)) {
+		lines.add("the daemon's acquisition ended by its timeout of " + daemonAcquisition.timeout() + " ms");
+		daemonAcquisition = null;
+	}
+	acquisitions.entrySet().removeIf(entry -> {
+		if(!entry.getValue().expired(now)) { return false; }
+		lines.add(indexed.get(entry.getKey()).name + "'s acquisition ended by its timeout of " + entry.getValue().timeout() + " ms");
+		return true;
+	});
+	for(ACSED_Database database : databases.values()) {
+		if(database.inspectionTimeout == 0 || now - database.inspectionUntil < 0) { continue; }
+		long timeout = database.inspectionTimeout;
+		database.inspectionTimeout = 0;
+		try {
+			database.core.getJournal().endInspection();
+			answerWaits(database, done(database.name + " returned: " + position(database.core) + ", its inspection ended by its timeout of " + timeout + " ms"));
+			lines.add(database.name + "'s inspection ended by its timeout of " + timeout + " ms");
+		} catch(RuntimeException e) { lines.add(database.name + "'s inspection outlived its timeout of " + timeout + " ms, but cannot end: " + reason(e)); }
+	}
+	for(var entry : waiting.entrySet()) {
+		entry.getValue().removeIf(held -> {
+			if(held.timeout == 0 || now - held.until < 0) { return false; }
+			held.answer = refused("no return of " + entry.getKey().name + " within " + held.timeout + " ms");
+			held.outcome = "refused: no return within " + held.timeout + " ms";
+			ready.add(held);
+			return true;
+		});
+	}
+	waiting.values().removeIf(List::isEmpty);
+	return lines;
+}
+
+/** How many milliseconds the daemon may sleep before the next timeout passes, at least 1; 0 when nothing is timed, for a sleep without end. */
+long untilNext() {
+	long now = System.nanoTime(), next = Long.MAX_VALUE;
+	if(daemonAcquisition != null && daemonAcquisition.timeout() > 0) { next = Math.min(next, daemonAcquisition.until() - now); }
+	for(Acquisition acquisition : acquisitions.values()) { if(acquisition.timeout() > 0) { next = Math.min(next, acquisition.until() - now); } }
+	for(ACSED_Database database : databases.values()) { if(database.inspectionTimeout > 0) { next = Math.min(next, database.inspectionUntil - now); } }
+	for(List<Held> held : waiting.values()) { for(Held one : held) { if(one.timeout > 0) { next = Math.min(next, one.until - now); } } }
+	return next == Long.MAX_VALUE ? 0 : Math.max(1, next / 1_000_000 + 1);
 }
 
 /** Refuses leftover bytes before the command runs, then a frame its acquisition does not let through. */
@@ -449,9 +550,10 @@ ACSED_Database database(int index) {
 /** What a frame addresses, for the log: no names, since acsed reads none. */
 static String describe(Frame one) {
 	String code = one.parameters().length >= 4 ? Integer.toString(ByteBuffer.wrap(one.parameters(), 0, 4).getInt()) : "none";
-	if(one.subject() == ACSED_Request.ACSED) { return "acsed code " + code; }
+	String timeout = one.timeout() == 0 ? "" : " timeout " + one.timeout();
+	if(one.subject() == ACSED_Request.ACSED) { return "acsed code " + code + timeout; }
 	String target = one.type() == ACSED_Request.ACSED ? "acsed" : "type " + one.type() + " index " + one.index() + " place " + one.place();
-	return "database " + one.subject() + " " + target + " code " + code;
+	return "database " + one.subject() + " " + target + " code " + code + timeout;
 }
 
 static DataInputStream parameters(Frame one) { return new DataInputStream(new ByteArrayInputStream(one.parameters())); }
@@ -616,21 +718,28 @@ static final class Language {
 	}
 }
 
-/** An acquisition's key, and whether acsed's reading commands go without it. */
-record Acquisition(String key, boolean changesOnly) {}
+/** An acquisition's key, whether acsed's reading commands go without it, and its timeout in milliseconds, 0 for none, with the System.nanoTime it ends at. */
+record Acquisition(String key, boolean changesOnly, long timeout, long until) {
+	static Acquisition of(String key, boolean changesOnly, long timeout) { return new Acquisition(key, changesOnly, timeout, timeout == 0 ? 0 : ACSED_Commands.until(timeout)); }
 
-/** A client a wait holds open, with its log line, and the answer and its outcome once one is ready. */
+	boolean expired(long now) { return timeout > 0 && now - until >= 0; }
+}
+
+/** A client a wait holds open, with its log line, its timeout in milliseconds, 0 for none, and the answer and its outcome once one is ready. */
 static final class Held {
 	final SocketChannel client;
 	final OffsetDateTime time;
 	final String note;
+	final long timeout, until;
 	Answer answer;
 	String outcome;
 
-	Held(SocketChannel client, OffsetDateTime time, String note) {
+	Held(SocketChannel client, OffsetDateTime time, String note, long timeout) {
 		this.client = client;
 		this.time = time;
 		this.note = note;
+		this.timeout = timeout;
+		this.until = timeout == 0 ? 0 : until(timeout);
 	}
 }
 

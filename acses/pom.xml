@@ -46,7 +46,7 @@
                 </configuration>
             </plugin>
 
-            <!-- target/acsess/: acsess.jar, bin/acsess, and lib/ with acs, acse, fastutil and RoaringBitmap
+            <!-- target/acsess/: acsess.jar, bin/acsess, bin/acsess.cmd, and lib/ with acs, acse, fastutil and RoaringBitmap
                  as separate jars. Not one merged jar: a store copies what it reaches from the place the
                  contracts came from, so every database's classes.jar would carry fastutil and
                  RoaringBitmap, and a load would then meet two copies of the types the contracts name. -->

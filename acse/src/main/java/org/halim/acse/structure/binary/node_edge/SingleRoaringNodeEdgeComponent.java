@@ -3,6 +3,7 @@ package org.halim.acse.structure.binary.node_edge;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
+import org.halim.acs.ACS_Requestable;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.DataInputStream;
@@ -114,6 +115,7 @@ void rebuildIndex() throws IOException {
 }
 
 /** An index, a probe and a rank, then the direction checked against the edge's ends. */
+@ACS_Requestable(15)
 @Override
 public int edgeOf(int node, int otherNode) {
 	long index = indexOf(node, otherNode);

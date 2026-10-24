@@ -24,8 +24,7 @@ import org.halim.acs.structure.ACS_StructureComponentBase;
  * <p>
  * A connection is made only between identities their arities hold, and checked there; breaking one,
  * and every read, take the identities as given. Every change is journaled as the connection it makes or
- * breaks, so undo and redo replay single connections. With {@link #ORDERED}, a step carries the place
- * it makes or breaks at. Identities are ints,
+ * breaks, so undo and redo replay single connections. Identities are ints,
  * as in every structure: a connection costs an int on both ends.
  * */
 public interface ACS_ConnectorComponentBase extends ACS_StructureComponentBase {
@@ -44,13 +43,6 @@ int EVERY_PRIMARY_CONNECTED = 1 << 2;
 
 /** Every complement is connected, counted as {@link #EVERY_PRIMARY_CONNECTED} counts. */
 int EVERY_COMPLEMENT_CONNECTED = 1 << 3;
-
-/**
- * A primary's complements keep an order: a new connection is placed after the ones there, a break closes
- * its gap, and {@link #copyComplementsInto} gives them in that order. Without it they carry none, and a
- * storage may keep them as a set. A complement's primaries have no order either way.
- * */
-int ORDERED = 1 << 4;
 
 /**
  * A primary is connected to a complement once at most. Without it, each connection to the same complement
@@ -101,13 +93,50 @@ int complementCount(int primary);
 int primaryCount(int complement);
 
 /**
- * The complements of {@code primary}, {@link #complementCount} of them, a repeated one each time: with
- * {@link #ORDERED} in their order, otherwise in the order the implementation states.
+ * The complements of {@code primary}, {@link #complementCount} of them, a repeated one each time, in the
+ * order the implementation states.
  * */
 void copyComplementsInto(int primary, int[] dest, int offset);
 
 /** The primaries of {@code complement}, {@link #primaryCount} of them, in the order the implementation states. */
 void copyPrimariesInto(int complement, int[] dest, int offset);
+
+
+/** {@link #ensureConnection}, as elements-clusters names the connector: the element is the primary, the cluster the complement. */
+default boolean cluster(int element, int cluster, String comment) { return ensureConnection(element, cluster, comment); }
+
+/** {@link #breakConnection}, as elements-clusters names it. */
+default boolean uncluster(int element, int cluster, String comment) { return breakConnection(element, cluster, comment); }
+
+/** {@link #isConnected}, as elements-clusters names it. */
+default boolean isClustered(int element, int cluster) { return isConnected(element, cluster); }
+
+/** The element's clusters, as {@link #copyComplementsInto} gives them. */
+default int[] clustersOf(int element) {
+	int[] clusters = new int[complementCount(element)];
+	copyComplementsInto(element, clusters, 0);
+	return clusters;
+}
+
+/** The cluster's elements, as {@link #copyPrimariesInto} gives them. */
+default int[] elementsOf(int cluster) {
+	int[] elements = new int[primaryCount(cluster)];
+	copyPrimariesInto(cluster, elements, 0);
+	return elements;
+}
+
+default int clusterCount(int element) { return complementCount(element); }
+
+default int elementCount(int cluster) { return primaryCount(cluster); }
+
+/**
+ * The element's clusters become {@code clusters}, a repeat counting once, as one change: refused for what
+ * the new list breaks, never for what breaks only midway. False when nothing changes.
+ * */
+boolean setClusters(int element, int[] clusters, String comment);
+
+/** The cluster's elements become {@code elements}, as {@link #setClusters} sets them. */
+boolean setElements(int cluster, int[] elements, String comment);
 
 
 }

@@ -15,8 +15,8 @@ import java.util.List;
 /**
  * A graph whose elements are the identities of the arity at index 0. Each kind is a graph on them under
  * restrictions: the bits of one int, given when the structure is built and fixed from then on, 0 being any
- * graph, loops included. Whether 0 is directed is the kind's, each with a bit of its own: a unary graph is
- * directed until symmetric, a node-cluster symmetric until directed. A structure is built from its
+ * graph, loops included, and symmetric in every kind, since clusters are symmetric by nature: an edge joins
+ * its two elements both ways until {@link #DIRECTED}. A structure is built from its
  * restrictions, and a storage takes the sets it can keep and refuses the others when built. The bits sit
  * from {@code 1 << 8} up, above a connector's, so a kind that is both keeps them in one int.
  * <p>
@@ -67,13 +67,18 @@ int FULLY_REACHABLE = 1 << 14;
 /** Every two elements are joined by a path, direction ignored: no islands. Counted as {@link #FULLY_REACHABLE} counts; asked by {@link #connectsAll}. */
 int ALL_CONNECTED = 1 << 15;
 
+/**
+ * An edge goes one way, from the parent to the child. Without it an edge goes both ways, so an element's
+ * parents are its children; each kind says how its edges take a direction.
+ * */
+int DIRECTED = 1 << 17;
+
 
 /** The restrictions it was built with, an OR of the constants above. */
 int getRestrictions();
 
 default boolean allowsLoops() { return (getRestrictions() & (NO_LOOPS | ACYCLIC)) == 0; }
-/** Whether an edge goes one way: each kind says by a bit of its own. */
-boolean isDirected();
+default boolean isDirected() { return (getRestrictions() & DIRECTED) != 0; }
 default boolean isAcyclic() { return (getRestrictions() & ACYCLIC) != 0; }
 default boolean hasAtMostOneFrom() { return (getRestrictions() & AT_MOST_ONE_FROM) != 0; }
 default boolean hasAtMostOneTo() { return (getRestrictions() & AT_MOST_ONE_TO) != 0; }
@@ -115,6 +120,47 @@ void copyChildrenInto(int element, int[] dest, int offset);
 
 /** Whether a path of edges leads from {@code from} to {@code to}; true when they are the same element. */
 boolean reaches(int from, int to);
+
+
+/**
+ * One more edge from {@code first} to {@code last}: a request is a link without direction, and on a directed
+ * graph its first points to its last. False when the kind keeps one edge a pair and it is there; refuses
+ * what {@link #addParent} refuses.
+ * */
+boolean connectTo(int first, int last, String comment);
+
+/** One edge fewer from {@code first} to {@code last}; false when there is none. */
+boolean disconnectFrom(int first, int last, String comment);
+
+/** Whether an edge goes from {@code first} to {@code last}, either way round on a directionless graph. */
+boolean isConnectedTo(int first, int last);
+
+/** What {@code first} points to: its children, as {@link #copyChildrenInto} gives them. */
+default int[] lastsOf(int first) {
+	int[] lasts = new int[childCount(first)];
+	copyChildrenInto(first, lasts, 0);
+	return lasts;
+}
+
+/** What points to {@code last}: its parents, as {@link #copyParentsInto} gives them. */
+default int[] firstsOf(int last) {
+	int[] firsts = new int[parentCount(last)];
+	copyParentsInto(last, firsts, 0);
+	return firsts;
+}
+
+default int lastCount(int first) { return childCount(first); }
+
+default int firstCount(int last) { return parentCount(last); }
+
+/**
+ * What {@code first} points to becomes {@code lasts}, a repeat counting once, as one change: refused for what
+ * the new list breaks, never for what breaks only midway. False when nothing changes.
+ * */
+boolean setLasts(int first, int[] lasts, String comment);
+
+/** What points to {@code last} becomes {@code firsts}, as {@link #setLasts} sets it. */
+boolean setFirsts(int last, int[] firsts, String comment);
 
 
 /**
@@ -241,6 +287,43 @@ default boolean reachesAll(IdentitiesSet elements) {
 
 /** Whether {@code elements} make one part: {@link #ALL_CONNECTED}, asked. */
 default boolean connectsAll(IdentitiesSet elements) { return parts(elements).size() <= 1; }
+
+
+/** What {@link #writeAncestors} writes, as an int[]: the analyses as requests, which take and give no stream. */
+default int[] ancestorsOf(int element) { return walk(element, true, null).toIntArray(); }
+
+/** What {@link #writeDescendants} writes, as an int[]. */
+default int[] descendantsOf(int element) { return walk(element, false, null).toIntArray(); }
+
+/** What {@link #writeNearestCommonAncestors} writes, as an int[]. */
+default int[] nearestCommonAncestorsOf(int element, int other) { return nearestCommon(element, other, true).toIntArray(); }
+
+/** What {@link #writeNearestCommonDescendants} writes, as an int[]. */
+default int[] nearestCommonDescendantsOf(int element, int other) { return nearestCommon(element, other, false).toIntArray(); }
+
+/** {@link #writeTopologicalOrder} over the graph {@code elements} make, given as ints, since a request takes no set; refused as it refuses. */
+int[] topologicalOrderAmong(int[] elements);
+
+/** {@link #hasCycle} among {@code elements}. */
+boolean hasCycleAmong(int[] elements);
+
+/** What {@link #writeRoots} writes among {@code elements}, as an int[]. */
+int[] rootsAmong(int[] elements);
+
+/** What {@link #writeLeaves} writes among {@code elements}, as an int[]. */
+int[] leavesAmong(int[] elements);
+
+/** What {@link #writeParts} writes among {@code elements}, as one int[] in its layout: the part count, then each part's size and elements. */
+int[] partsAmong(int[] elements);
+
+/** {@link #connectivity} among {@code elements}. */
+double connectivityAmong(int[] elements);
+
+/** {@link #reachesAll} among {@code elements}. */
+boolean reachesAllAmong(int[] elements);
+
+/** {@link #connectsAll} among {@code elements}. */
+boolean connectsAllAmong(int[] elements);
 
 
 /** A breadth-first walk from {@code element} along the parents, or the children, each element once and the start never; {@code within} null for the whole graph. */

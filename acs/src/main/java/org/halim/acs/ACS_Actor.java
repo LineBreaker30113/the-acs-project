@@ -80,9 +80,9 @@ private static String typeName(Class<?> actor, Method method, Class<?> type) {
 	return type.getSimpleName();
 }
 
-/** A string on the wire: its UTF-8 byte length as an int, then the bytes. */
+/** A string on the wire: its UTF-8 byte length as an int, then the bytes; a null is written as {@code [ACS-NULL!!]}. */
 static void writeString(DataOutputStream dos, String string) throws IOException {
-	byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
+	byte[] bytes = (string == null ? "[ACS-NULL!!]" : string).getBytes(StandardCharsets.UTF_8);
 	dos.writeInt(bytes.length);
 	dos.write(bytes);
 }
@@ -93,7 +93,8 @@ static String readString(DataInputStream dis) throws IOException {
 	if(length < 0) { throw new IOException("string length " + length); }
 	byte[] bytes = dis.readNBytes(length);
 	if(bytes.length < length) { throw new EOFException("a string of " + length + " bytes ends after " + bytes.length); }
-	return new String(bytes, StandardCharsets.UTF_8);
+	String string = new String(bytes, StandardCharsets.UTF_8);
+	return string.equals("[ACS-NULL!!]") ? null : string;
 }
 
 }

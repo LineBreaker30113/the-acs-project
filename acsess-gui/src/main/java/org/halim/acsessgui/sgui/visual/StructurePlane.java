@@ -16,14 +16,15 @@ import java.util.function.Consumer;
 
 /**
  * A plane of nodes and edges, moved by dragging its empty part and zoomed by the mouse wheel around the
- * pointer, as the structure views draw structures and arities. Its own Java2D, so no graph library: the
- * nodes are placed by the view, and the plane only draws, finds the node under the mouse, and transforms.
+ * pointer, as the content panel's structure kinds draw structures and arities. Its own Java2D, so no graph
+ * library: the nodes are placed by the panel, a row of arities above a row of structures, and the plane only
+ * draws, finds the node under the mouse, and transforms.
  * A node is an element: clicked and dragged as any view's lines are; a note is drawn over the plane
  * without moving with it.
  * */
 public class StructurePlane extends JComponent {
 
-static final double WIDTH = 150, HEIGHT = 40, MIN_SCALE = 0.1, MAX_SCALE = 8;
+static final double WIDTH = 150, HEIGHT = 40, MIN_SCALE = 0.1, MAX_SCALE = 8, SPACING = 180, ROWS = 160;
 
 /** A node's center in plane units; a square node is drawn as a structure is, a round one as an arity. */
 public record Node(WorkspaceElement element, String label, double x, double y, boolean square) {}

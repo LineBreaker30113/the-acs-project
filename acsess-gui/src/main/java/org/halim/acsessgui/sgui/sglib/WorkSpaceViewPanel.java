@@ -22,12 +22,6 @@ protected ACSESS_GUI_Service.DatabaseService database() { return app.servicePort
 
 @Override public void onSelectedDatabaseChange(ACSESS_GUI_Service.DatabaseService database) { }
 
-@Override public void onSelectedArityChange(int arity) { }
-
-@Override public void onSelectedStructureChange(int structure) { }
-
-@Override public void onSelectedClassChange(String className) { }
-
 @Override public void onFocusChange(WorkspaceElement focused) { }
 
 }

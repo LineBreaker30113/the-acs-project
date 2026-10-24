@@ -13,7 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryFlag;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +31,8 @@ import java.util.List;
  * then the returns, as their byte length and the bytes. A frame is its subject, an int: a database's index,
  * or {@link #ACSED} for acsed itself; for a database, the type and the index of what it addresses, and for
  * an actor the place of its class in the database's {@value #DATABASE_LANGUAGE}; the acquisition key, ""
- * without one; then the parameters, as their byte length and the bytes, starting with the request's code.
+ * without one; the timeout, a long of milliseconds, 0 without one; then the parameters, as their byte
+ * length and the bytes, starting with the request's code.
  * A string is its UTF-8 byte length as an int, then the bytes, and an int is four bytes, high first, as
  * {@link DataOutputStream} writes it. Nothing ends a part but its own length, so a side that reads less or
  * more than a length says is talking to a broken peer, not to a short message.
@@ -69,10 +76,27 @@ public static Path language(Path socket) { return socket.resolveSibling(LANGUAGE
 /** A line per database acsed holds: its index, its name and its folder, tab-separated, the folder last. */
 public static Path databases(Path socket) { return socket.resolveSibling(DATABASES); }
 
-/** Makes the socket's folder, open to its owner only, when it is not there yet; a folder already there is taken as it is. */
+/**
+ * Makes the socket's folder, open to its owner only, when it is not there yet: by its POSIX permissions, or
+ * where there are none, as on Windows, by an ACL allowing the owner alone; a folder already there is taken
+ * as it is.
+ * */
 public static void makeFolder(Path socket) throws IOException {
 	Path folder = socket.getParent();
-	if(!Files.isDirectory(folder)) { Files.createDirectories(folder, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))); }
+	if(Files.isDirectory(folder)) { return; }
+	if(folder.getFileSystem().supportedFileAttributeViews().contains("posix")) { Files.createDirectories(folder, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))); }
+	else { Files.createDirectories(folder, ownerOnly(folder)); }
+}
+
+/** An ACL of one entry: the user running this program, allowed everything on the folder, and inherited by every file and folder made in it. */
+static FileAttribute<List<AclEntry>> ownerOnly(Path folder) throws IOException {
+	UserPrincipal owner = folder.getFileSystem().getUserPrincipalLookupService().lookupPrincipalByName(System.getProperty("user.name"));
+	AclEntry entry = AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(owner).setPermissions(AclEntryPermission.values())
+		.setFlags(AclEntryFlag.FILE_INHERIT, AclEntryFlag.DIRECTORY_INHERIT).build();
+	return new FileAttribute<>() {
+		public String name() { return "acl:acl"; }
+		public List<AclEntry> value() { return List.of(entry); }
+	};
 }
 
 /** Writes the text beside the file and renames it into place, so a reader sees the old text or the new, never a part. */
@@ -113,6 +137,7 @@ public static void writeConnection(DataOutputStream out, Connection connection) 
 			if(frame.type != ACSED) { out.writeInt(frame.place); }
 		}
 		writeString(out, frame.key);
+		out.writeLong(frame.timeout);
 		writeBytes(out, frame.parameters);
 	}
 }
@@ -131,7 +156,9 @@ public static Connection readConnection(DataInputStream in) throws IOException {
 			index = in.readInt();
 			if(type != ACSED) { place = in.readInt(); }
 		}
-		frames.add(new Frame(subject, type, index, place, readString(in), readBytes(in)));
+		String key = readString(in);
+		long timeout = in.readLong();
+		frames.add(new Frame(subject, type, index, place, key, timeout, readBytes(in)));
 	}
 	return new Connection(continueOnRefusal == 1, frames);
 }
@@ -168,8 +195,8 @@ public static byte[] readBytes(DataInputStream in) throws IOException {
 /** The frames of one connection, and whether acsed runs past a refusal among them. */
 public record Connection(boolean continueOnRefusal, List<Frame> frames) {}
 
-/** One request as it travels; {@code type}, {@code index} and {@code place} are 0 where the subject or the type has none. */
-public record Frame(int subject, int type, int index, int place, String key, byte[] parameters) {}
+/** One request as it travels; {@code type}, {@code index} and {@code place} are 0 where the subject or the type has none, {@code timeout} where the request gives none. */
+public record Frame(int subject, int type, int index, int place, String key, long timeout, byte[] parameters) {}
 
 /** A status and the returns: the result as its type is written, or the reason of a refusal as a string. */
 public record Answer(int status, byte[] returns) {}

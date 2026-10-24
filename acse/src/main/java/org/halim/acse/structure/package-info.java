@@ -10,6 +10,10 @@
  *   <li>{@code binary.connector} - an identity of one arity connected to an identity of another, or not.</li>
  *   <li>{@code binary.node_edge} - a graph whose nodes are one arity and whose edges are another.</li>
  *   <li>{@code binary.category} - empty so far.</li>
+ *   <li>{@code ternary.primary_relation_complement} - the most formal ternary: an identity of one arity
+ *       relating a few identities of a second to a few of a third.</li>
+ *   <li>{@code ternary.of_by_to} - an identity of one arity matching a list of pairs, each an identity of a
+ *       second with one of a third.</li>
  * </ul>
  * */
 package org.halim.acse.structure;

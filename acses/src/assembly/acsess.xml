@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The program as it is run: acsess.jar, bin/acsess beside it, and the jars its manifest names in lib/. -->
+<!-- The program as it is run: acsess.jar, bin/acsess and bin/acsess.cmd beside it, and the jars its manifest names in lib/. -->
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
@@ -18,6 +18,11 @@
             <source>src/main/bin/acsess</source>
             <outputDirectory>bin</outputDirectory>
             <fileMode>0755</fileMode>
+        </file>
+        <file>
+            <source>src/main/bin/acsess.cmd</source>
+            <outputDirectory>bin</outputDirectory>
+            <lineEnding>crlf</lineEnding>
         </file>
     </files>
 

@@ -5,6 +5,7 @@ import org.halim.acsessgui.mhexagon.ACSESS_GUI_Service.Components;
 import org.halim.acsessgui.sgui.ApplicationController;
 import org.halim.acsessgui.sgui.sglib.Utilities;
 import org.halim.acsessgui.sgui.sglib.WorkSpaceViewPanel;
+import org.halim.acsessgui.sgui.sglib.WorkspaceElement;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,9 +13,10 @@ import java.awt.*;
 
 /**
  * The shown database's core: its class, as the current store's indexer names it, and how many arities and
- * structures it holds, removed slots left out; and its requests, a button each, asking what they need.
- * Every request is one journal activity, and every view reads again after it. A core class the store
- * cannot give is shown with the reason, and does not stop the counts.
+ * structures it holds, removed slots left out; and its requests on arities and structures, a button each,
+ * asking what they need, the focused element's slot offered. Capturing and deleting identities is the arity
+ * summary's. Every request is one journal activity, and every view reads again after it. A core class the
+ * store cannot give is shown with the reason, and does not stop the counts.
  * */
 public class CoreView extends WorkSpaceViewPanel {
 
@@ -45,8 +47,6 @@ public CoreView(ApplicationController app) {
 	tools.add(button("Add Row...", this::addRow));
 	tools.add(button("Remove Arity...", this::removeArity));
 	tools.add(button("Remove Structure...", this::removeStructure));
-	tools.add(button("Capture Identity...", this::captureIdentity));
-	tools.add(button("Delegate Removal...", this::delegateRemoval));
 	tools.setMaximumSize(new Dimension(260, Integer.MAX_VALUE));
 	body.add(tools);
 	add(body, BorderLayout.NORTH);
@@ -60,6 +60,18 @@ static JButton button(String text, Runnable action) {
 }
 
 record Standing(Components components, String core) {}
+
+/** The focused element's arity, or -1. */
+int focusedArity() {
+	WorkspaceElement focused = app.wsModeller.getFocused();
+	return focused == null ? -1 : focused.arity();
+}
+
+/** The focused element's structure, or -1. */
+int focusedStructure() {
+	WorkspaceElement focused = app.wsModeller.getFocused();
+	return focused == null ? -1 : focused.structure();
+}
 
 @Override
 public void onSelectedDatabaseChange(ACSESS_GUI_Service.DatabaseService database) {
@@ -110,7 +122,7 @@ void addArity() {
 void addRow() {
 	ACSESS_GUI_Service.DatabaseService database = database();
 	if(database == null) { return; }
-	int selected = app.wsModeller.getSelectedArity();
+	int selected = focusedArity();
 	JTextField arity = new JTextField(selected >= 0 ? String.valueOf(selected) : "", 12);
 	JComboBox<String> className = new JComboBox<>(ROW_CLASSES);
 	className.setEditable(true);
@@ -136,7 +148,7 @@ void addRow() {
 void removeArity() {
 	ACSESS_GUI_Service.DatabaseService database = database();
 	if(database == null) { return; }
-	long[] numbers = askNumbers("Remove Arity", app.wsModeller.getSelectedArity(), "The arity to remove:");
+	long[] numbers = askNumbers("Remove Arity", focusedArity(), "The arity to remove:");
 	if(numbers == null || !confirmed("Remove arity " + numbers[0] + "? It is one journal activity, undone as one.")) { return; }
 	int at = (int) numbers[0];
 	app.perform("remove arity " + at, () -> database.removeArity(at), () -> app.wsModeller.triggerDatabaseRefresh(database));
@@ -145,32 +157,10 @@ void removeArity() {
 void removeStructure() {
 	ACSESS_GUI_Service.DatabaseService database = database();
 	if(database == null) { return; }
-	long[] numbers = askNumbers("Remove Structure", app.wsModeller.getSelectedStructure(), "The structure to remove:");
+	long[] numbers = askNumbers("Remove Structure", focusedStructure(), "The structure to remove:");
 	if(numbers == null || !confirmed("Remove structure " + numbers[0] + "? It is one journal activity, undone as one.")) { return; }
 	int at = (int) numbers[0];
 	app.perform("remove structure " + at, () -> database.removeStructure(at), () -> app.wsModeller.triggerDatabaseRefresh(database));
-}
-
-void captureIdentity() {
-	ACSESS_GUI_Service.DatabaseService database = database();
-	if(database == null) { return; }
-	long[] numbers = askNumbers("Capture Identity", app.wsModeller.getSelectedArity(), "The arity to capture an identity in:");
-	if(numbers == null) { return; }
-	int at = (int) numbers[0];
-	app.request("capture an identity in arity " + at, () -> database.captureIdentity(at), identity -> {
-		app.wsModeller.triggerDatabaseRefresh(database);
-		JOptionPane.showMessageDialog(this, "Arity " + at + " captured identity " + identity + ".", "Captured", JOptionPane.INFORMATION_MESSAGE);
-	});
-}
-
-void delegateRemoval() {
-	ACSESS_GUI_Service.DatabaseService database = database();
-	if(database == null) { return; }
-	long[] numbers = askNumbers("Delegate Removal", app.wsModeller.getSelectedArity(), "The arity:", "The identity to remove, the structures holding it letting go first:");
-	if(numbers == null || !confirmed("Remove identity " + numbers[1] + " from arity " + numbers[0] + "? It is one journal activity, undone as one.")) { return; }
-	int at = (int) numbers[0];
-	long identity = numbers[1];
-	app.perform("remove identity " + identity + " of arity " + at, () -> database.deleteIdentity(at, identity), () -> app.wsModeller.triggerDatabaseRefresh(database));
 }
 
 boolean confirmed(String question) { return JOptionPane.showConfirmDialog(this, question, "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION; }

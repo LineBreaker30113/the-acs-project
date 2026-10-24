@@ -12,6 +12,8 @@ import java.net.UnixDomainSocketAddress;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
@@ -24,12 +26,14 @@ import java.util.List;
 
 /**
  * The process that holds the databases, a pure server: its one input is the socket its boot names, as
- * {@code socket=<path>}, and what comes in is frames, not text. It serves one connection at a time on one
- * thread, which makes it the single writer: no core is ever reached by two requests at once. Each frame is
- * logged on the standard output - its time, what it addresses and its code, its comment when its command
- * takes one, and its outcome - and boot points the standard output at the log. A waitInspectionReturn
- * during an inspection is held open without a thread and answered after a later connection; the frames of
- * one connection run back to back.
+ * {@code socket=<path>}, and what comes in is frames, not text; the boot may add {@code timeout=<ms>}, the
+ * default timeout of a sensitive command, or {@code +forbidDefaultTimeout}. It serves one connection at a
+ * time on one thread, which makes it the single writer: no core is ever reached by two requests at once.
+ * Between connections it wakes when a timeout passes, and ends what that timeout was given to. Each frame
+ * is logged on the standard output - its time, what it addresses and its code, its timeout, its comment
+ * when its command takes one, and its outcome - and boot points the standard output at the log. A
+ * waitInspectionReturn during an inspection is held open without a thread and answered after a later
+ * connection or when a timeout passes; the frames of one connection run back to back.
  * <p>
  * The lock beside the socket is held for the daemon's whole life, and only its holder removes a socket
  * file nothing answers on and binds a new one, so two boots racing cannot take the socket from each
@@ -39,12 +43,20 @@ import java.util.List;
 public class ACSED_Daemon {
 
 public static void main(String[] args) {
-	Path socket = args.length == 1 && args[0].startsWith("socket=") && args[0].length() > 7 ? Path.of(args[0].substring(7)).toAbsolutePath() : null;
-	if(socket == null) {
-		log(OffsetDateTime.now(), "stopped: usage: " + ACSED_Daemon.class.getName() + " socket=<path>");
+	Path socket = null;
+	long timeout = 0;
+	boolean forbid = false, usage = args.length == 0 || args.length > 2;
+	for(String argument : args) {
+		if(argument.startsWith("socket=") && argument.length() > 7 && socket == null) { socket = Path.of(argument.substring(7)).toAbsolutePath(); }
+		else if(argument.startsWith("timeout=") && timeout == 0 && !forbid) { timeout = milliseconds(argument.substring(8)); }
+		else if(argument.equals("+forbidDefaultTimeout") && timeout == 0 && !forbid) { forbid = true; }
+		else { usage = true; }
+	}
+	if(socket == null || timeout < 0 || usage) {
+		log(OffsetDateTime.now(), "stopped: usage: " + ACSED_Daemon.class.getName() + " socket=<path> [timeout=<ms> | +forbidDefaultTimeout]");
 		System.exit(1);
 	}
-	try { serve(socket); }
+	try { serve(socket, timeout, forbid); }
 	catch(IOException | RuntimeException e) {
 		log(OffsetDateTime.now(), "stopped: " + ACSED_Commands.reason(e));
 		System.exit(1);
@@ -52,12 +64,21 @@ public static void main(String[] args) {
 	log(OffsetDateTime.now(), "stopped");
 }
 
+/** A positive number of milliseconds, else -1. */
+static long milliseconds(String digits) {
+	try {
+		long value = Long.parseLong(digits);
+		return value > 0 ? value : -1;
+	} catch(NumberFormatException e) { return -1; }
+}
+
 /**
  * Takes the lock, replaces a socket file nothing answers on, writes acsed's own language and an empty list
  * of databases beside the lock, and serves until a shutdown; the socket file goes with the daemon, the lock
- * file stays.
+ * file stays. It sleeps on a selector until a connection comes or the next timeout passes; a connection
+ * accepted is read blocking, as before.
  * */
-static void serve(Path socket) throws IOException {
+static void serve(Path socket, long timeout, boolean forbid) throws IOException {
 	ACSED_Request.makeFolder(socket);
 	Path lockFile = ACSED_Request.lock(socket);
 	try(FileChannel lockChannel = FileChannel.open(lockFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
@@ -65,14 +86,20 @@ static void serve(Path socket) throws IOException {
 		if(lock == null) { throw new IOException("another daemon holds " + lockFile); }
 		if(answers(socket)) { throw new IOException("a daemon answers on " + socket + " without holding " + lockFile); }
 		Files.deleteIfExists(socket);
-		ACSED_Commands commands = new ACSED_Commands(socket);
+		ACSED_Commands commands = new ACSED_Commands(socket, timeout, forbid);
 		commands.writeLanguage();
 		commands.writeDatabases();
-		try(ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+		try(ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX); Selector selector = Selector.open()) {
 			server.bind(UnixDomainSocketAddress.of(socket));
-			log(OffsetDateTime.now(), "listening on " + socket + ", pid " + ProcessHandle.current().pid());
+			server.configureBlocking(false);
+			server.register(selector, SelectionKey.OP_ACCEPT);
+			log(OffsetDateTime.now(), "listening on " + socket + ", pid " + ProcessHandle.current().pid() + ", " + commands.timeouts());
 			while(!commands.stopping) {
+				selector.select(commands.untilNext());
+				selector.selectedKeys().clear();
+				expire(commands);
 				SocketChannel client = server.accept();
+				if(client == null) { continue; }
 				if(!answer(client, commands)) { client.close(); }
 				answerHeld(commands);
 			}
@@ -102,12 +129,19 @@ static boolean answer(SocketChannel client, ACSED_Commands commands) {
 	ArrayList<String> notes = new ArrayList<>();
 	List<ACSED_Request.Answer> answers = commands.run(connection, notes);
 	if(answers == null) {
-		commands.hold(new ACSED_Commands.Held(client, time, notes.get(0)));
+		commands.hold(client, time, notes.get(0));
 		log(time, notes.get(0) + " -> held");
 		return true;
 	}
 	send(client, time, notes, answers);
 	return false;
+}
+
+/** Logs what passed its timeout and was ended, then sends the answers that came ready by it. */
+static void expire(ACSED_Commands commands) throws IOException {
+	OffsetDateTime time = OffsetDateTime.now();
+	for(String line : commands.expire()) { log(time, line); }
+	answerHeld(commands);
 }
 
 /** Sends the answers that came ready for held clients, each logged under the time of its connection, and closes them. */

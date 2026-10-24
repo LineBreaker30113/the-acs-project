@@ -1,17 +1,11 @@
 package org.halim.acsessgui.sgui;
 
 import org.halim.acsessgui.sgui.sglib.WorkSpaceViewPanel;
-import org.halim.acsessgui.sgui.visual.AritiesView;
-import org.halim.acsessgui.sgui.visual.ArityTableView;
-import org.halim.acsessgui.sgui.visual.ClassesView;
-import org.halim.acsessgui.sgui.visual.CodeView;
 import org.halim.acsessgui.sgui.visual.ConsoleView;
 import org.halim.acsessgui.sgui.visual.ContentPanel;
 import org.halim.acsessgui.sgui.visual.CoreView;
 import org.halim.acsessgui.sgui.visual.JournalView;
-import org.halim.acsessgui.sgui.visual.ProceduresView;
-import org.halim.acsessgui.sgui.visual.StructureView;
-import org.halim.acsessgui.sgui.visual.StructuresView;
+import org.halim.acsessgui.sgui.visual.ListerPanel;
 import org.halim.acsessgui.sgui.visual.WorkPanelWrapper;
 import org.halim.acsessgui.sgui.visual.WorkspaceRow;
 
@@ -25,18 +19,18 @@ import java.util.Collections;
  * The views in rows of columns, each shown, hidden and moved by the sidebar's toggles and its own arrows,
  * as in OntoDirectory's WorkspacePanel, which had the one row: left and right within a row, up and down
  * across the rows; moving down from the last row makes a new one, and an emptied row goes. The rows share
- * the height, the views of a row its width. A content panel is opened anew by each press of its toggle
- * and closed by its own button, since any number may be open.
+ * the height, the views of a row its width. The core, the journal and the console are toggled; a lister
+ * and a content panel are opened anew by each press of their buttons and closed by their own, since any
+ * number may be open. The workspace opens with the core, the journal and a lister of the arities.
  * */
 public class WorkspacePanel extends JPanel {
 
-public static final String coreVN = "coreV", journalVN = "journalV", classesVN = "classesV", codeVN = "codeV", aritiesVN = "aritiesV",
-	arityTableVN = "arityTableV", structuresVN = "structuresV", structureVN = "structureV", proceduresVN = "proceduresV", consoleVN = "consoleV", contentVN = "contentV";
+public static final String coreVN = "coreV", journalVN = "journalV", consoleVN = "consoleV", listerVN = "listerV", contentVN = "contentV";
 
 final ArrayList<WorkPanelWrapper> allPanels = new ArrayList<>();
 final ArrayList<WorkspaceRow> rows = new ArrayList<>();
 public final GUI_RootPanel owner;
-int contentCount = 0;
+int listerCount = 0, contentCount = 0;
 
 public WorkspacePanel(GUI_RootPanel owner) {
 	this.owner = owner;
@@ -48,17 +42,11 @@ void initViews() {
 	ApplicationController app = owner.appController;
 	view(coreVN, "Core", new CoreView(app));
 	view(journalVN, "Journal", new JournalView(app));
-	view(classesVN, "Classes", new ClassesView(app));
-	view(codeVN, "Code", new CodeView(app));
-	view(aritiesVN, "Arities", new AritiesView(app));
-	view(arityTableVN, "Arity Table", new ArityTableView(app));
-	view(structuresVN, "Structures", new StructuresView(app));
-	view(structureVN, "Structure", new StructureView(app));
-	view(proceduresVN, "Procedures", new ProceduresView(app));
 	view(consoleVN, "Request Console", new ConsoleView(app));
 
-	panelToggled(aritiesVN);
-	panelToggled(arityTableVN);
+	panelToggled(coreVN);
+	panelToggled(journalVN);
+	openListerPanel().choose(ListerPanel.Kind.ARITY_LIST);
 }
 
 void view(String name, String niceTitle, WorkSpaceViewPanel view) {
@@ -66,8 +54,22 @@ void view(String name, String niceTitle, WorkSpaceViewPanel view) {
 	allPanels.add(new WorkPanelWrapper(name, niceTitle, view, this));
 }
 
+/** A new lister, in the last row, listing nothing until it is told what. */
+public ListerPanel openListerPanel() {
+	ApplicationController app = owner.appController;
+	ListerPanel panel = new ListerPanel(app);
+	app.wsModeller.registerListener(panel);
+	WorkPanelWrapper[] wrapper = new WorkPanelWrapper[1];
+	wrapper[0] = new WorkPanelWrapper(listerVN + (++listerCount), "Lister", panel, this, () -> {
+		closePanel(wrapper[0]);
+		app.wsModeller.removeListener(panel);
+	});
+	reopenPanel(wrapper[0]);
+	return panel;
+}
+
 /** A new content panel, in the last row, reading the shown database at once. */
-public void openContentPanel() {
+public ContentPanel openContentPanel() {
 	ApplicationController app = owner.appController;
 	ContentPanel panel = new ContentPanel(app);
 	app.wsModeller.registerContent(panel);
@@ -78,6 +80,7 @@ public void openContentPanel() {
 	});
 	reopenPanel(wrapper[0]);
 	panel.onSelectedDatabaseChange(app.servicePort.getActiveDatabase());
+	return panel;
 }
 
 WorkspaceRow rowOf(WorkPanelWrapper wrapper) {

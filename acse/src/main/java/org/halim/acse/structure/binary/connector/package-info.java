@@ -9,6 +9,10 @@
  *   <li>{@link org.halim.acse.structure.binary.connector.SingleRoaringConnectorComponent} -
  *       one bitmap over a stride of the persistent side, recalculated when a connection does not fit; cheap
  *       from the volatile side.</li>
+ *   <li>{@link org.halim.acse.structure.binary.connector.FunctionConnectorComponent} -
+ *       a function: one int a primary, and a list of primaries a complement.</li>
+ *   <li>{@link org.halim.acse.structure.binary.connector.BijectiveFunctionConnectorComponent} -
+ *       a bijective function: one int a side.</li>
  * </ul>
  * */
 package org.halim.acse.structure.binary.connector;

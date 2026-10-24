@@ -34,12 +34,16 @@ import java.util.List;
  * comment; the plain arguments fill the rest in order; a string or a boolean not given is "" or false. Of
  * two requests sharing a name, the one the arguments fill is taken; an array is typed with commas between
  * its elements, and printed an element a line. A first argument of eight hexadecimal digits is an
- * acquisition's key.
+ * acquisition's key. {@code timeout=<ms>}, anywhere among the arguments, is the frame's timeout, not a
+ * parameter: acsed applies it to what the request starts - an acquisition, a held wait, an inspection -
+ * and ends that once the time passes.
  * <p>
  * Only {@code boot} starts anything. With no daemon answering, it launches one as a separate process, so
  * this command line stays free, detached from the terminal, so closing the terminal leaves it running;
  * every other command fails at once when nothing answers, so a mistyped request never leaves a daemon
- * behind. {@code beginSession} runs here alone: it reads requests line by line and sends nothing until a
+ * behind. Boot's {@code timeout=<ms>} is the daemon's default for a sensitive command that gives none, and
+ * {@code +forbidDefaultTimeout} makes acsed refuse such a command instead; both are the daemon's arguments,
+ * so they count only when this boot starts it. {@code beginSession} runs here alone: it reads requests line by line and sends nothing until a
  * line {@code Commit [+continueOnRefusal]}, which sends them all as one connection, so the daemon runs them
  * back to back.
  * */
@@ -47,11 +51,14 @@ public class ACSESS {
 
 /** By name, not by import: this side knows the daemon only as a class to launch. */
 static final String DAEMON = "org.halim.acses.acsed.ACSED_Daemon";
+static final boolean WINDOWS = System.getProperty("os.name").startsWith("Windows");
 /** How long boot waits for a started daemon's socket to answer. */
 static final long WAIT_NANOS = 10_000_000_000L;
 /** How a database's command says where its database's name goes, since its line does not hold it. */
 static final String AFTER_NAME = ", the database's name first";
 static final String USAGE = "usage: acsess [<key>] <command> [arguments], or acsess [<key>] <database>:[<actor>] <request> [arguments]";
+/** The boot arguments that go to the daemon's command line rather than into boot's frame. */
+static final String TIMEOUT = "timeout=", FORBID_DEFAULT = "+forbidDefaultTimeout";
 
 
 public static void main(String[] args) {
@@ -77,17 +84,26 @@ static void once(Path socket, List<String> words) throws IOException {
 }
 
 /**
- * Sends boot once acsed answers, launching it first when nothing does: the same java, the same class path,
- * under setsid, or nohup where there is none, its input from /dev/null and its output appended to the log,
- * with the socket as its one argument. The daemon's own answer names its pid: a boot racing this one may
+ * Sends boot once acsed answers, launching it first when nothing does: as {@link #command} says, its input
+ * from the null device and its output appended to the log, with the socket and boot's timeout arguments
+ * as its arguments. The daemon's own answer names its pid and its timeouts: a boot racing this one may
  * have won the lock, and then the daemon that answers is not the process started here.
  * */
 static void boot(Path socket, List<String> words) throws IOException {
-	if(!answers(socket)) {
+	ArrayList<String> timeouts = new ArrayList<>(), rest = new ArrayList<>();
+	for(String word : words) {
+		if(word.startsWith(TIMEOUT)) { timeout(word); timeouts.add(word); }
+		else if(word.equals(FORBID_DEFAULT)) { timeouts.add(word); }
+		else { rest.add(word); }
+	}
+	if(timeouts.size() > 1) { throw new IllegalArgumentException("usage: boot [" + TIMEOUT + "<ms> | " + FORBID_DEFAULT + "]"); }
+	if(answers(socket)) {
+		if(!timeouts.isEmpty()) { System.err.println("warning: the daemon runs already, so " + timeouts.get(0) + " is not applied"); }
+	} else {
 		ACSED_Request.makeFolder(socket);
 		Path log = ACSED_Request.log(socket);
-		ProcessBuilder builder = new ProcessBuilder(command(socket));
-		builder.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
+		ProcessBuilder builder = new ProcessBuilder(command(socket, timeouts));
+		builder.redirectInput(ProcessBuilder.Redirect.from(new File(WINDOWS ? "NUL" : "/dev/null")));
 		builder.redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile()));
 		builder.redirectErrorStream(true);
 		Process daemon = builder.start();
@@ -100,7 +116,7 @@ static void boot(Path socket, List<String> words) throws IOException {
 			pause();
 		}
 	}
-	once(socket, words);
+	once(socket, rest);
 }
 
 /** Whether something answers on the socket, by a connection carrying no frame, which acsed answers with nothing. */
@@ -183,9 +199,9 @@ static void commit(Path socket, boolean continueOnRefusal, List<Translated> queu
 
 
 /**
- * A command line as a frame and the line it was translated by. The key comes off first; an address is
- * probed, a command of acsed is looked up in acsed-language.txt, and either way the arguments are written
- * by the line they fill.
+ * A command line as a frame and the line it was translated by. The key comes off first, then the
+ * timeout; an address is probed, a command of acsed is looked up in acsed-language.txt, and either way
+ * the arguments are written by the line they fill.
  * */
 static Translated translate(Path socket, List<String> words) throws IOException {
 	String key = "";
@@ -193,10 +209,19 @@ static Translated translate(Path socket, List<String> words) throws IOException 
 		key = words.get(0);
 		words = words.subList(1, words.size());
 	}
+	long timeout = 0;
+	ArrayList<String> kept = new ArrayList<>();
+	for(String word : words) {
+		if(!kept.isEmpty() && word.startsWith(TIMEOUT)) {
+			if(timeout != 0) { throw new IllegalArgumentException(TIMEOUT + " is given twice"); }
+			timeout = timeout(word);
+		} else { kept.add(word); }
+	}
+	words = kept;
 	String first = words.get(0);
 	List<String> arguments = words.subList(1, words.size());
 	List<Section> acsed = sections(ACSED_Request.language(socket), socket);
-	if(first.indexOf(':') >= 0) { return addressed(socket, key, first, arguments, acsed); }
+	if(first.indexOf(':') >= 0) { return addressed(socket, key, timeout, first, arguments, acsed); }
 	List<Line> own = acsed.get(0).named(first), ofDatabase = acsed.get(1).named(first);
 	int plain = firstPlain(arguments);
 	if(!ofDatabase.isEmpty() && (own.isEmpty() || plain >= 0)) {
@@ -205,7 +230,7 @@ static Translated translate(Path socket, List<String> words) throws IOException 
 		rest.remove(plain);
 		Line line = pick(ofDatabase, rest, -1, "", AFTER_NAME);
 		byte[] parameters = written(line, fill(line, rest, -1));
-		return new Translated(new ACSED_Request.Frame(database(socket, arguments.get(plain)).index, ACSED_Request.ACSED, 0, 0, key, parameters), line);
+		return new Translated(new ACSED_Request.Frame(database(socket, arguments.get(plain)).index, ACSED_Request.ACSED, 0, 0, key, timeout, parameters), line);
 	}
 	if(own.isEmpty()) {
 		ArrayList<String> names = new ArrayList<>();
@@ -213,11 +238,20 @@ static Translated translate(Path socket, List<String> words) throws IOException 
 		throw new IllegalArgumentException("unknown command " + first + "; the commands: " + String.join(", ", names) + "; and beginSession, then Commit; or an address, <database>:<actor>");
 	}
 	Line line = pick(own, arguments, -1, "", "");
-	return new Translated(new ACSED_Request.Frame(ACSED_Request.ACSED, 0, 0, 0, key, written(line, fill(line, arguments, -1))), line);
+	return new Translated(new ACSED_Request.Frame(ACSED_Request.ACSED, 0, 0, 0, key, timeout, written(line, fill(line, arguments, -1))), line);
+}
+
+/** The milliseconds of a {@code timeout=<ms>}, refused unless positive. */
+static long timeout(String word) {
+	try {
+		long timeout = Long.parseLong(word.substring(TIMEOUT.length()));
+		if(timeout > 0) { return timeout; }
+	} catch(NumberFormatException e) {}
+	throw new IllegalArgumentException(word + ": a timeout is a positive number of milliseconds");
 }
 
 /** An actor's request: the database by its name, the actor by what follows the colon, its class's place by a probe, its lines from the database's language. */
-static Translated addressed(Path socket, String key, String address, List<String> arguments, List<Section> acsed) throws IOException {
+static Translated addressed(Path socket, String key, long timeout, String address, List<String> arguments, List<Section> acsed) throws IOException {
 	if(arguments.isEmpty()) { throw new IllegalArgumentException("usage: acsess " + address + " <request> [arguments]"); }
 	int colon = address.lastIndexOf(':');
 	Database database = database(socket, address.substring(0, colon));
@@ -236,7 +270,7 @@ static Translated addressed(Path socket, String key, String address, List<String
 	} else { throw new IllegalArgumentException(address + ": after the colon comes nothing, core, journal, arity-<k> or arity-<k>.row-<j>"); }
 	Line probe = only(acsed.get(1).named("probe"), "probe");
 	ArrayList<ACSED_Request.Frame> probes = new ArrayList<>();
-	for(int[] target : targets) { probes.add(new ACSED_Request.Frame(database.index, ACSED_Request.ACSED, 0, 0, key, written(probe, List.of(Integer.toString(target[0]), Integer.toString(target[1]))))); }
+	for(int[] target : targets) { probes.add(new ACSED_Request.Frame(database.index, ACSED_Request.ACSED, 0, 0, key, 0, written(probe, List.of(Integer.toString(target[0]), Integer.toString(target[1]))))); }
 	List<ACSED_Request.Answer> places = ACSED_Request.send(socket, false, probes);
 	if(places == null) { throw new NoDaemon(socket); }
 	List<Section> language = sections(database.folder.resolve(ACSED_Request.DATABASE_LANGUAGE), socket);
@@ -266,7 +300,7 @@ static Translated addressed(Path socket, String key, String address, List<String
 	}
 	if(row >= 0 && lines.stream().noneMatch(line -> line.names.contains("catalog"))) { throw new IllegalArgumentException(address + " names a row, and " + request + " takes no catalog"); }
 	Line line = pick(lines, rest, row, address + " ", "");
-	return new Translated(new ACSED_Request.Frame(database.index, targets.get(found)[0], targets.get(found)[1], place, key, written(line, fill(line, rest, row))), line);
+	return new Translated(new ACSED_Request.Frame(database.index, targets.get(found)[0], targets.get(found)[1], place, key, timeout, written(line, fill(line, rest, row))), line);
 }
 
 
@@ -543,12 +577,17 @@ static String quoted(String argument) {
 	return '"' + argument.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + '"';
 }
 
-/** The same java and class path as this program, under setsid when the system has it, else nohup: either way the daemon outlives the terminal. */
-static List<String> command(Path socket) {
+/**
+ * The same java and class path as this program, under setsid when the system has it, else nohup: either
+ * way the daemon outlives the terminal. On Windows, neither: a process Java starts there gets a console of
+ * its own, not the terminal's, so closing the terminal does not reach it.
+ * */
+static List<String> command(Path socket, List<String> timeouts) {
 	String java = ProcessHandle.current().info().command().orElseGet(() -> Path.of(System.getProperty("java.home"), "bin", "java").toString());
 	ArrayList<String> command = new ArrayList<>();
-	command.add(onPath("setsid") ? "setsid" : "nohup");
+	if(!WINDOWS) { command.add(onPath("setsid") ? "setsid" : "nohup"); }
 	command.addAll(List.of(java, "-cp", System.getProperty("java.class.path"), DAEMON, "socket=" + socket));
+	command.addAll(timeouts);
 	return command;
 }
 
