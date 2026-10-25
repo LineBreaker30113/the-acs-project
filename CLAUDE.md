@@ -152,7 +152,9 @@ session moves them into the root citable's `## Method`, through `markdowns/agent
   per overridden entry. The Verbatim is the author's; an agent adds of its own only the Meaning and the
   labels. The migrated entries keep their one part and their `Section:` line. A new
   `agents-unreviewed.md` starts with the header `# <folder>: entries to review`, then the
-  `# Unreviewed` line.
+  `# Unreviewed` line. Before the first entry of a session, read `parse_unreviewed` in
+  `~/mein/claude/scripts/agents_review_move.py`: its regexes are the format, and the review script
+  (`agents_review.py`) refuses the whole run on a line they reject, e.g. prose after `Replaces: <folder> N`.
 - **record-decision**, for a new decision. The author: "Agent must scan entire decisions to find
   "common, complement, contradict" things and then propose me a better definition." Read every
   folder's `CLAUDE.md` and the target folder's `agents-unreviewed.md`, and open the citable entries the

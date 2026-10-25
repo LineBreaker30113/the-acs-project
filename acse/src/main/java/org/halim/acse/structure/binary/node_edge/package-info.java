@@ -3,7 +3,7 @@
  * data of its own. What kind of graph it is - directed, acyclic, with loops, with parallel edges - is a set
  * of rules fixed at construction; how it is stored is the type's. Every type here:
  * <ul>
- *   <li>{@link org.halim.acs.structure.binary.node_edge.ACS_NodeEdgeComponentBase} -
+ *   <li>{@link org.halim.acse.structure.binary.node_edge.NodeEdgeBase} -
  *       the contract: the graph's kind, connections made and broken, an edge's nodes, a node's edges.</li>
  *   <li>{@link org.halim.acse.structure.binary.node_edge.NodeEdgeGraphBase} - what the
  *       storages share: the rules, the edge → nodes side, and the core's part; a storage adds the

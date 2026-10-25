@@ -11,6 +11,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import static org.halim.acse.structure.UnaryRestrictions.*;
+import static org.halim.acse.structure.BinaryRestrictions.*;
+
 
 /**
  * The node side as {@code k} slots a node in one flat int array: node {@code n}'s edges sit at
@@ -39,12 +42,12 @@ final ByteArrayList counts = new ByteArrayList();
 final Int2ObjectOpenHashMap<IntArrayList> overflow = new Int2ObjectOpenHashMap<>();
 
 
-public InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops, boolean allowsParallelEdges, int slots) {
-	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges);
+public InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops, boolean allowsParallelLinks, int slots) {
+	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelLinks);
 	this.slots = checkSlots(slots);
 }
 
-/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges, slots read from the request, in that order; nothing is written back. */
+/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelLinks, slots read from the request, in that order; nothing is written back. */
 public InlineSlotsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
 	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readInt());
 }
@@ -65,7 +68,7 @@ public int getSlots() { return slots; }
 public void setSlots(int slots) {
 	checkSlots(slots);
 	ArrayList<IntArrayList> held = new ArrayList<>(counts.size());
-	for(int node = 0; node < counts.size(); node++) { held.add(edgesOf(node)); }
+	for(int node = 0; node < counts.size(); node++) { held.add(edgeListOf(node)); }
 	this.slots = slots;
 	inline.clear();
 	counts.clear();
@@ -90,7 +93,7 @@ void unindex(int edge, int first, int second) {
 }
 
 @Override
-IntArrayList edgesOf(int node) {
+IntArrayList edgeListOf(int node) {
 	IntArrayList held = new IntArrayList();
 	if(node < 0 || node >= counts.size()) { return held; }
 	held.addElements(0, inline.elements(), node * slots, counts.getByte(node));

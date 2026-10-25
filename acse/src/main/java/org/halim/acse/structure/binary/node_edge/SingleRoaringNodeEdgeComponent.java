@@ -10,6 +10,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import static org.halim.acse.structure.UnaryRestrictions.*;
+import static org.halim.acse.structure.BinaryRestrictions.*;
+
 
 /**
  * The node side as the node arity connected to itself in one Roaring bitmap: every unordered pair of nodes
@@ -52,7 +55,7 @@ public SingleRoaringNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataIn
 
 SingleRoaringNodeEdgeComponent(ACS_Core core, ACS_Journal journal, Rules rules) {
 	super(core, journal, rules);
-	if(rules.allowsParallelEdges) { throw new IllegalArgumentException("one index a pair holds one edge"); }
+	if(rules.allowsParallelLinks) { throw new IllegalArgumentException("one index a pair holds one edge"); }
 }
 
 
@@ -121,7 +124,6 @@ void rebuildIndex() throws IOException {
 }
 
 /** An index, a probe and a rank, then the direction checked against the edge's ends. */
-@ACS_Requestable(15)
 @Override
 public int edgeOf(int node, int otherNode) {
 	long index = indexOf(node, otherNode);
@@ -132,7 +134,7 @@ public int edgeOf(int node, int otherNode) {
 
 /** The node's own run - its pairs with smaller nodes and itself - then one probe in each later run. */
 @Override
-IntArrayList edgesOf(int node) {
+IntArrayList edgeListOf(int node) {
 	IntArrayList held = new IntArrayList();
 	if(node < 0 || node >= NODE_LIMIT || pairs.isEmpty()) { return held; }
 	pairs.forEachInRange((int) runOf(node), node + 1, index -> held.add(edgeAt(index)));

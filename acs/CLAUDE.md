@@ -1,8 +1,10 @@
 # acs
 
-- The element types: arities first, structures second, procedures third (1, 2, 10).
+- The element types: arities first, structures second, procedures third (1, 2, 10). Core, journal,
+  and all three types are actors (76).
 - Structures ensure their own rules and represent data optimally, while imv values can be removed (9,
-  18); they are not responsible for the element count (29).
+  18); they are not responsible for the element count (29). Structures and arities are added by their
+  full class name (89).
 - A structure holds only the connections, never data of its elements: whatever a connection means
   beyond the connection is an entity with an identity in an arity, hence `ACS_NodeEdgeComponentBase`;
   a unary structure is a directed graph on one arity's identities, each kind a restriction of it (61).
@@ -17,12 +19,17 @@
 - Components refer to each other by ints the core resolves, for now enough: they cannot be inserted, any
   other core can accept them, and object pointers are not used, since journalling must go through the
   core and future features may reason over many instances; the author is open to suggestions (5, 6).
+  The core resolves actor types and takes procedure slots now, where type << 28 | slot is sufficient
+  for all purposes and journal is 8 only (71); actor types shrink and enumerate: description 0, core 1,
+  journal 2, arity 3, row 4, structure 5, gap, procedure 7 (94).
 - The structure contract must allow storing and loading via data streams; the core can manage the files
   (15).
-- The core is the only outside caller of removal; the arity removes on its own and calls the core's
-  forget, which must remove the associated data but not shift all the identities, and needs to be
-  undoable; data is forgotten, but journalled, at removal (16, 17, 19, 25, 26, 31). A structure removing
-  an identity elsewhere calls that arity's remove, recursively (24).
+- The core is the only outside caller of removal requests, while arity removes on its own and calls the
+  core's forget, which must remove the associated data but not shift all the identities, and needs to be
+  undoable; data is forgotten, but journalled, at removal (16, 17, 19, 25, 26, 31, 86). A structure
+  removing an identity elsewhere calls that arity's remove, recursively (24).
+- The core rejects removing an arity while a structure spans it (88). `ACS_Core` takes and gives
+  identities as int for now (87).
 - Execution reaching identities checks they exist when necessary, maybe in cases not remembered right
   now (20); structures do not shift data and point at the index, transformed first, which would not
   cause any problem (21, 22); the author believes structures do not need to check (23).
@@ -35,36 +42,55 @@
 - Calculated arities must depend on a structure, since depending on an arity can raise errors (28); the
   author thinks arity sizes need defining, as a cartesian's can be calculated (56).
 - Requests do the checks, then call checkless unit operations; for now the public methods keep their
-  checks (36, 66). No CQRS, separate write and read paths, for now, since every action returns a
-  result (64). The journal carries undo, redo and logging,
-  one lock per transaction, a single writer (37); every request must be able to store a comment, since
-  every action may later be audited (38).
+  checks (36, 66). Marks on the interface fix which methods are requests so every implementation shares
+  codes, and `writeRequestables` must read them from the interface, not the class (73). The actor's
+  method is named `request` (68); results can state a response format through `DataOutputStream` (74),
+  and reads take comments too (75).
+- No CQRS, separate write and read paths, for now, since every action returns a result (64). The journal
+  carries undo, redo and logging, one lock per transaction, a single writer (37); every request must be
+  able to store a comment, since every action may later be audited (38). Journal methods say Request
+  instead of Activity (81).
 - Every component is an actor: a separate interface, named like `ACS_Actor`, replaces
-  `TraceableForUndoingRedoing`, exposing requests to the outside through `call` and its bindings, and
-  steps to the journal through `doTraceableStep` (62). `call` takes a `DataInputStream`: objects cost
+  `TraceableForUndoingRedoing`, exposing requests to the outside through `request` and its bindings, and
+  steps to the journal through `doTraceableStep` (62). Requests take a `DataInputStream`: objects cost
   too much on 2^25 or more records, and a method takes any number of inputs of any type; the author is
   open to a better solution (65).
-- The journal is an actor too: its `call` likely holds the inspection refusal; its `doTraceableStep`
+- The journal is an actor too: its `request` likely holds the inspection refusal; its `doTraceableStep`
   throws an illegal-action error, the feature being out of MVP; being an actor allows a multi-branch
-  timeline journal later, which, like the journal's movement handling, is out of scope (63).
+  timeline journal later, which, like the journal's movement handling, is out of scope (63). During
+  inspection the refusal stays in `beginRecordingActivity`, refusing every actor's write, not only the
+  journal's (70).
 - Actions are invertible, inverse calculatable, or not undoable, which needs "break undo history" (39,
-  40, 41); persistence needs no journal (42).
+  40, 41); step -128 is not undoable but can be ignored, skipping undo and redo without breaking
+  history (69). A step should never depend on order (72).
 - For multi-step requests, resolvers can record the beginning, then call the atomic operations, likely
   better, as undo may differ (43); begin and end records must carry a name, each step must carry its
   parameters and inverse, and more can be added (44).
-- Structures register op codes and a codec (45); operations, not the client, declare logging modes (46);
-  only relations are recorded, no positions (47); adding identities is journalled (50); the journal
+- Keep `recordBoolean` and `getBoolean` for steps (80). Steps are not loggable since they would take
+  too much space; the journal translates them, so no structure registers a codec (45, 78), each actor
+  stating how its steps read (79), and the log should write through each actor's description, not as raw
+  ints (84). The author guesses the logging mode is canceled, and no operation declares one (46, 82).
+- Each class must only inherit one contract (83); classes must not inherit two interfaces in the same
+  goal, and a class may inherit two only when goals differ, making the core + description manager an
+  exception (85).
+- Only relations are recorded, no positions (47); adding identities is journalled (50); the journal
   contract comes with the core's (48); an abort option is needed beside throwing (49). A read through a
   request is journaled as a query, and `addCatalogRow` takes a row class by its full name (67).
 - Each component instance has a description that must be readable and settable, stating its purpose to
   the agent (51); classes can have one, so the agent can choose among implementations of one logic, say
-  whether elements connect or not, or write its own (52); no journalling, except that creating can
-  require a description parameter (53).
-- Persistence goes through core methods taking a target folder (54); the persistence manager can be
-  variable (55).
+  whether elements connect or not, or write its own (52).
+- The description manager is an actor with its own contract and object held by the core, and can move
+  to the persistence package (92, 95); its changes are not a huge amount of data and record on the
+  journal, where previously no journalling was needed except for creation (53, 93).
+- Persistence needs no journal (42); it goes through core methods taking a target folder (54); the
+  persistence manager can be variable (55). Part format and class loader stay inside
+  `ACS_PersistenceManager` (91).
+- One string encoding in acs, not two: UTF-8 with an int byte length, where a null string is written as
+  `[ACS-NULL!!]` and no unpaired surrogate is kept (77, 90).
 - Filtering is meant as a query service: logical combinations (AND, OR, NOT and more) and data filters
   like childOf (57). Right now it can only provide the logical operators and the client filters data,
   but some filtering modules must be done (58); the OR variants are all redundant boilerplate, last, and
   logic stays minimal right now (59, 60).
 - `arity/CLAUDE.md`: an arity's catalogs and identities; `arity/sets/` holds the identities set.
 - `structure/CLAUDE.md`: the structure kinds and the structure contract.
+- `procedure/CLAUDE.md`: procedures and manual steps.

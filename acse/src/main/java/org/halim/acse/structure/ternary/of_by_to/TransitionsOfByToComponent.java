@@ -6,8 +6,6 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_Requestable;
-import org.halim.acs.structure.ternary.of_by_to.ACS_OfByToComponentBase;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -15,6 +13,8 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import static org.halim.acse.structure.TernaryRestrictions.*;
 
 
 /**
@@ -24,20 +24,20 @@ import java.util.Arrays;
  * connection. One pair a by, so a transition's of and to are one int each, the identity plus one, 0 for
  * none; per of and per to, a list of the transitions on it, so both sides read without a scan.
  * <p>
- * It takes the kinds with {@link #TRANSITIONS} and keeps the element bits and {@link #NO_PARALLEL_BYS} with
+ * It takes the kinds with {@link #TRANSITIONS} and keeps the element bits and {@link #NO_PARALLEL_VIAS} with
  * checks, and {@link #FULL} it refuses, since it captures one transition at
  * a time. A transition's pair is replaced by {@link #setPairs} and never removed alone, so
  * {@link #removePair} refuses: a transition goes through the core. A by captured any other way is no
  * transition until {@link #addPair} gives it its pair. A step flips the two ints, which makes it its own
  * inverse whatever the order undo replays it in. Not multi thread safe.
  * */
-public class TransitionsOfByToComponent implements ACS_OfByToComponentBase {
+public class TransitionsOfByToComponent extends OfByToBase {
 
 /** The transition (by, of, to) matched; the negative triple unmatches it, by the same flips. */
 static final byte LINK = 1;
 /** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = requestNames(TransitionsOfByToComponent.class);
-static final int EVERY_BIT = NO_REPEATS | NO_PARALLEL_BYS | AT_MOST_ONE_OF_PER_BY | AT_MOST_ONE_TO_PER_BY | AT_MOST_ONE_BY_PER_OF | AT_MOST_ONE_TO_PER_OF | AT_MOST_ONE_BY_PER_TO | AT_MOST_ONE_OF_PER_TO | EVERY_BY_MATCHES;
+static final String[] REQUESTS = ACS_Actor.requestNames(TransitionsOfByToComponent.class);
+static final int EVERY_BIT = NO_REPEATS | NO_PARALLEL_VIAS | AT_MOST_ONE_PRIMARY_PER_RELATION | AT_MOST_ONE_COMPLEMENT_PER_RELATION | AT_MOST_ONE_RELATION_PER_PRIMARY | AT_MOST_ONE_TO_PER_FROM | AT_MOST_ONE_RELATION_PER_COMPLEMENT | AT_MOST_ONE_FROM_PER_TO | EVERY_VIA_MATCHES;
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -58,7 +58,7 @@ public TransitionsOfByToComponent(ACS_Core core, ACS_Journal journal, int ofArit
 	if(ofArity == byArity || byArity == toArity || ofArity == toArity) { throw new IllegalArgumentException("arities " + ofArity + ", " + byArity + " and " + toArity + " are not three slots"); }
 	if((restrictions & FULL) != 0) { throw new IllegalArgumentException("FULL holds only where the by arity is strictly caused; transitions are captured one at a time"); }
 	if((restrictions & ~EVERY_BIT) != 0) { throw new IllegalArgumentException("restrictions " + restrictions + " hold a bit of-by-to has not"); }
-	if((restrictions & TRANSITIONS) != TRANSITIONS) { throw new IllegalArgumentException("transitions are built with AT_MOST_ONE_OF_PER_BY, AT_MOST_ONE_TO_PER_BY, NO_REPEATS and EVERY_BY_MATCHES; given " + restrictions); }
+	if((restrictions & TRANSITIONS) != TRANSITIONS) { throw new IllegalArgumentException("transitions are built with AT_MOST_ONE_PRIMARY_PER_RELATION, AT_MOST_ONE_COMPLEMENT_PER_RELATION, NO_REPEATS and EVERY_VIA_MATCHES; given " + restrictions); }
 	this.core = core;
 	this.journal = journal;
 	this.ofArity = ofArity;
@@ -83,11 +83,13 @@ public int getArityIdentity(int index) {
 	};
 }
 
-@Override
 public int getRestrictions() { return restrictions; }
 
+/** It makes no arity, so it strictly causes none; a via it captures through the core is the client's arity's too. */
+@Override
+public boolean isCaused(int index) { return false; }
 
-@ACS_Requestable(4)
+
 @Override
 public int pairCount(int by) { return ofOf(by) >= 0 ? 1 : 0; }
 
@@ -98,14 +100,12 @@ public void copyPairsInto(int by, int[] dest, int offset) {
 	dest[offset + 1] = toOf(by);
 }
 
-@ACS_Requestable(5)
 @Override
 public int takerCount(int of) { return sizeOf(listAt(takers, of)); }
 
 @Override
 public void copyTakersInto(int of, int[] dest, int offset) { copySorted(listAt(takers, of), dest, offset); }
 
-@ACS_Requestable(6)
 @Override
 public int giverCount(int to) { return sizeOf(listAt(givers, to)); }
 
@@ -121,7 +121,7 @@ public void writeTosOf(int of, DataOutputStream dos) throws IOException {
 }
 
 @Override
-public void writeOfsOf(int to, DataOutputStream dos) throws IOException {
+public void writeFromsOf(int to, DataOutputStream dos) throws IOException {
 	IntOpenHashSet found = new IntOpenHashSet();
 	IntArrayList held = listAt(givers, to);
 	for(int i = 0; i < sizeOf(held); i++) { found.add(ofOf(held.getInt(i))); }
@@ -133,19 +133,18 @@ public void writeOfsOf(int to, DataOutputStream dos) throws IOException {
  * The pair must be one, as of, to. Every restriction is checked before anything is recorded; the transition
  * is the by arity's lowest free identity, captured nested in this request.
  * */
-@ACS_Requestable(0)
 @Override
-public int ensureBy(int[] pairs, String comment) {
+public int ensureVia(int[] pairs, String comment) {
 	requireOnePair(pairs);
 	int of = pairs[0], to = pairs[1];
 	requireLive(ofArity, of);
 	requireLive(toArity, to);
-	if(has(NO_PARALLEL_BYS)) {
+	if(has(NO_PARALLEL_VIAS)) {
 		int held = transitionOf(of, to);
 		if(held >= 0) { return held; }
 	}
 	checkPair(-1, of, to);
-	int request = journal.beginRecordingActivity(this, "ensureBy", params, comment);
+	int request = journal.beginRecordingActivity(this, "ensureVia", params, comment);
 	int by;
 	try {
 		by = Math.toIntExact(core.captureIdentity(byArity, null));
@@ -159,7 +158,6 @@ public int ensureBy(int[] pairs, String comment) {
 }
 
 /** Gives a by captured elsewhere its pair; refuses a second pair on a transition. */
-@ACS_Requestable(1)
 @Override
 public boolean addPair(int by, int of, int to, String comment) {
 	requireLive(byArity, by);
@@ -178,7 +176,6 @@ public boolean addPair(int by, int of, int to, String comment) {
 }
 
 /** Refuses whenever the pair is there: every transition matches its pair, so the transition goes through the core instead. */
-@ACS_Requestable(2)
 @Override
 public boolean removePair(int by, int of, int to, String comment) {
 	if(ofOf(by) < 0 || ofOf(by) != of || toOf(by) != to) { return false; }
@@ -186,7 +183,6 @@ public boolean removePair(int by, int of, int to, String comment) {
 }
 
 /** Moves the transition to its new pair, which must be one: an unmatch and a match, recorded as two steps of one request. */
-@ACS_Requestable(3)
 @Override
 public boolean setPairs(int by, int[] pairs, String comment) {
 	requireOnePair(pairs);
@@ -227,7 +223,7 @@ public boolean forget(int arity, int identity) {
 
 /** Refuses the pair for {@code by}, -1 for a new transition, where another transition and a restriction forbid it. */
 void checkPair(int by, int of, int to) {
-	if(has(NO_PARALLEL_BYS)) {
+	if(has(NO_PARALLEL_VIAS)) {
 		int held = transitionOf(of, to);
 		if(held >= 0 && held != by) { throw new IllegalArgumentException("transition " + held + " goes from " + of + " to " + to + " already: no parallel bys"); }
 	}
@@ -235,14 +231,14 @@ void checkPair(int by, int of, int to) {
 	for(int i = 0; i < sizeOf(fromOf); i++) {
 		int other = fromOf.getInt(i);
 		if(other == by) { continue; }
-		if(has(AT_MOST_ONE_BY_PER_OF)) { throw new IllegalArgumentException("of " + of + " is in transition " + other + " already: one by at most"); }
-		if(has(AT_MOST_ONE_TO_PER_OF) && toOf(other) != to) { throw new IllegalArgumentException("of " + of + " goes to " + toOf(other) + " already: one to at most"); }
+		if(has(AT_MOST_ONE_RELATION_PER_PRIMARY)) { throw new IllegalArgumentException("of " + of + " is in transition " + other + " already: one by at most"); }
+		if(has(AT_MOST_ONE_TO_PER_FROM) && toOf(other) != to) { throw new IllegalArgumentException("of " + of + " goes to " + toOf(other) + " already: one to at most"); }
 	}
 	for(int i = 0; i < sizeOf(intoTo); i++) {
 		int other = intoTo.getInt(i);
 		if(other == by) { continue; }
-		if(has(AT_MOST_ONE_BY_PER_TO)) { throw new IllegalArgumentException("to " + to + " is in transition " + other + " already: one by at most"); }
-		if(has(AT_MOST_ONE_OF_PER_TO) && ofOf(other) != of) { throw new IllegalArgumentException("to " + to + " comes from " + ofOf(other) + " already: one of at most"); }
+		if(has(AT_MOST_ONE_RELATION_PER_COMPLEMENT)) { throw new IllegalArgumentException("to " + to + " is in transition " + other + " already: one by at most"); }
+		if(has(AT_MOST_ONE_FROM_PER_TO) && ofOf(other) != of) { throw new IllegalArgumentException("to " + to + " comes from " + ofOf(other) + " already: one of at most"); }
 	}
 }
 
@@ -403,20 +399,18 @@ static void writeSorted(DataOutputStream dos, IntOpenHashSet found) throws IOExc
 
 
 /** {@link #addPair}, as primary-relation-complement names it: the primary is the of, the relation the by, the complement the to. */
-@ACS_Requestable(7)
 @Override
-public boolean relate(int primary, int relation, int complement, String comment) { return addPair(relation, primary, complement, comment); }
+public boolean relateToTernary(int primary, int relation, int complement, String comment) { return addPair(relation, primary, complement, comment); }
 
 /**
  * The pair is the transition's one, and a transition losing its pair is no transition any more, so the
  * relation leaves its arity through the core, nested in this request, taking both sides with it. False when
  * the relation does not hold the pair.
  * */
-@ACS_Requestable(8)
 @Override
-public boolean unrelate(int primary, int relation, int complement, String comment) {
-	if(!isRelated(primary, relation, complement)) { return false; }
-	int request = journal.beginRecordingActivity(this, "unrelate", params, comment);
+public boolean unrelateFromTernary(int primary, int relation, int complement, String comment) {
+	if(!isRelatedToTernary(primary, relation, complement)) { return false; }
+	int request = journal.beginRecordingActivity(this, "unrelateFromTernary", params, comment);
 	try { core.delegateRemoval(byArity, relation, null); }
 	catch(RuntimeException | Error e) {
 		abort(request);
@@ -427,16 +421,14 @@ public boolean unrelate(int primary, int relation, int complement, String commen
 }
 
 /** Whether the relation holds the pair, a walk of its pairs. */
-@ACS_Requestable(9)
 @Override
-public boolean isRelated(int primary, int relation, int complement) {
+public boolean isRelatedToTernary(int primary, int relation, int complement) {
 	int[] pairs = pairsOf(relation);
 	for(int at = 0; at < pairs.length; at += 2) { if(pairs[at] == primary && pairs[at + 1] == complement) { return true; } }
 	return false;
 }
 
 /** The relation's pairs as primary, complement, primary, complement, in the order {@link #copyPairsInto} gives them, for the outside: no request fills the caller's array. */
-@ACS_Requestable(10)
 @Override
 public int[] pairsOf(int relation) {
 	int[] pairs = new int[2 * pairCount(relation)];
@@ -445,7 +437,6 @@ public int[] pairsOf(int relation) {
 }
 
 /** The relations pairing the primary, each once and ascending. */
-@ACS_Requestable(11)
 @Override
 public int[] takersOf(int primary) {
 	int[] takers = new int[takerCount(primary)];
@@ -454,7 +445,6 @@ public int[] takersOf(int primary) {
 }
 
 /** The relations pairing the complement, each once and ascending. */
-@ACS_Requestable(12)
 @Override
 public int[] giversOf(int complement) {
 	int[] givers = new int[giverCount(complement)];
@@ -463,14 +453,12 @@ public int[] giversOf(int complement) {
 }
 
 /** What {@link #writeTosOf} writes, as an int[], for the outside: no request takes a stream. */
-@ACS_Requestable(13)
 @Override
 public int[] tosOf(int of) { return across(takers, of, true); }
 
-/** What {@link #writeOfsOf} writes, as an int[]. */
-@ACS_Requestable(14)
+/** What {@link #writeFromsOf} writes, as an int[]. */
 @Override
-public int[] ofsOf(int to) { return across(givers, to, false); }
+public int[] fromsOf(int to) { return across(givers, to, false); }
 
 /** The other end of each transition holding the identity, each once and ascending: its to when {@code toward}, its of otherwise. */
 int[] across(ArrayList<IntArrayList> side, int identity, boolean toward) {
@@ -484,9 +472,9 @@ int[] across(ArrayList<IntArrayList> side, int identity, boolean toward) {
 
 
 /**
- * The requests, by code in the order of the marks: each reads its inputs, calls the public method, which
- * keeps its checks, and writes the result. A read is recorded as a query: its method's name and inputs,
- * then its answer, or its refusal; a list is answered by its length.
+ * The requests, by the codes {@link OfByToBase} marks: each reads its inputs, calls the public method,
+ * which keeps its checks, and writes the result. A read is recorded as a query: its method's name and
+ * inputs, then its answer, or its refusal; a list is answered by its length.
  * */
 @Override
 public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
@@ -494,45 +482,39 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 	String query = null;
 	try {
 		switch(code) {
-			case 0 -> returns.writeInt(ensureBy(readInts(parameters), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(addPair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2 -> returns.writeBoolean(removePair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 3 -> returns.writeBoolean(setPairs(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 4, 5, 6 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int value = switch(code) {
-					case 4 -> pairCount(identity);
-					case 5 -> takerCount(identity);
-					default -> giverCount(identity);
-				};
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 7 -> returns.writeBoolean(relate(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 8 -> returns.writeBoolean(unrelate(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 9 -> {
+			case 0 -> returns.writeBoolean(relateToTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 1 -> returns.writeBoolean(unrelateFromTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 2 -> {
 				int primary = parameters.readInt(), relation = parameters.readInt(), complement = parameters.readInt();
 				query = REQUESTS[code] + "(" + primary + ", " + relation + ", " + complement + ")";
-				boolean value = isRelated(primary, relation, complement);
+				boolean value = isRelatedToTernary(primary, relation, complement);
 				recordQuery(query, Boolean.toString(value));
 				returns.writeBoolean(value);
 			}
-			case 10, 11, 12 -> {
+			case 3 -> returns.writeBoolean(take(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 4 -> returns.writeBoolean(untake(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 5 -> returns.writeBoolean(give(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 6 -> returns.writeBoolean(ungive(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 7 -> returns.writeBoolean(setTaken(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			case 8 -> returns.writeBoolean(setGiven(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			case 9 -> returns.writeBoolean(moveTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 10 -> returns.writeBoolean(mergeTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 15 -> returns.writeInt(ensureVia(readInts(parameters), ACS_Actor.readString(parameters)));
+			case 16 -> returns.writeBoolean(addPair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 17 -> returns.writeBoolean(removePair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 18 -> returns.writeBoolean(setPairs(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
+			case 11, 12, 13, 14, 19, 20, 21 -> {
 				int identity = parameters.readInt();
 				query = REQUESTS[code] + "(" + identity + ")";
 				int[] value = switch(code) {
-					case 10 -> pairsOf(identity);
-					case 11 -> takersOf(identity);
-					default -> giversOf(identity);
+					case 11 -> takenOf(identity);
+					case 12 -> givenOf(identity);
+					case 13 -> takersOf(identity);
+					case 14 -> giversOf(identity);
+					case 19 -> pairsOf(identity);
+					case 20 -> tosOf(identity);
+					default -> fromsOf(identity);
 				};
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 13, 14 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int[] value = code == 13 ? tosOf(identity) : ofsOf(identity);
 				recordQuery(query, "int[" + value.length + "]");
 				writeInts(returns, value);
 			}
@@ -545,6 +527,7 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 	}
 	return true;
 }
+
 
 /** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
 static int[] readInts(DataInputStream dis) throws IOException {
@@ -563,17 +546,6 @@ void recordQuery(String request, String response) {
 /** What a refused request writes back: the error's message, or its class when it has none. */
 static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
 
-/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
-static String[] requestNames(Class<?> actor) {
-	ArrayList<String> names = new ArrayList<>();
-	for(Method method : actor.getMethods()) {
-		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
-		if(mark == null || method.isBridge()) { continue; }
-		while(names.size() <= mark.value()) { names.add(null); }
-		names.set(mark.value(), method.getName());
-	}
-	return names.toArray(new String[0]);
-}
 
 /** An int[] on the wire: its length, then its elements. */
 static void writeInts(DataOutputStream dos, int[] ints) throws IOException {

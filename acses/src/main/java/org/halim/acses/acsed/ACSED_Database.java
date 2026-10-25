@@ -7,7 +7,7 @@ import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
-import org.halim.acs.structure.ACS_StructureComponentBase;
+import org.halim.acs.structure.ACS_StructureBase;
 import org.halim.acses.acsess.ACSED_Request;
 import org.halim.acses.acsess.ACSED_Request.Answer;
 
@@ -138,7 +138,7 @@ public String components(String comment) {
 		}
 	}
 	for(int slot = 0; slot < core.getStructureCount(); slot++) {
-		ACS_StructureComponentBase structure = core.getStructure(slot);
+		ACS_StructureBase structure = core.getStructure(slot);
 		if(structure == null) {
 			ACSED_Commands.line(lines, "structure " + slot, "(removed)");
 			continue;

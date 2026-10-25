@@ -9,6 +9,8 @@
   separate one can be made (4).
 - The journal's creation can be independent of the core: `indexer.bin` names its class beside the
   core's, and a load builds both through the folder's jar (7).
+- An actor is kept as one int, type << 28 | slot, which is sufficient for all purposes, where the
+  journal is 8 only (17).
 - Descriptions are a few strings that do not take much space; the easiest representation can do (8).
 - Each class loads through a public static method, and `indexer.bin` names each class (9);
   `ACSE_PersistenceManager`, not the core, stores to and loads from new numbered folders each time (10).

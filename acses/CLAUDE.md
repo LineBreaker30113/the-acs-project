@@ -5,7 +5,11 @@
 - ACSES splits into two packages: `acsed`, the daemon, getting raw data on the input channels, such as
   sockets, that its boot parameters open, maybe only one; and `acsess`, the command line tool, which
   converts the CLI to raw data, owns the communication and boots acsed, so it chooses the channels and
-  uses them (21). Separate projects for ACSESS and ACSED are a goal (26).
+  uses them (21). Separate projects for ACSESS and ACSED are a goal (26). The daemon must be made
+  Windows compatible (27).
+- Sensitive commands (`acquire`, `waitInspectionReturn`, `inspectAt`) can take `timeout=<ms>`, where
+  every request that can be timed out can specify the timeout length so the daemon is not stuck with
+  a dead process; boot sets the default or forbids it, and if none is set the command must give one (28).
 - It must accept requests in many ways and be modular, loading .class files with ease; loading and
   using a class are separate, so folder- and class-loading methods must exist (3, 4).
 - Right now there is not a privilege system, so management and loading requests come through acses (5).

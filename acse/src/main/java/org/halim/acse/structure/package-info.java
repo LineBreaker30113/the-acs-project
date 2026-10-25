@@ -4,7 +4,7 @@
  * the relation itself, holding no data of its own. Subpackages are by how many arities a structure spans,
  * then, where one arity count has several kinds, by kind.
  * <ul>
- *   <li>{@link org.halim.acs.structure.ACS_StructureComponentBase} - the contract every
+ *   <li>{@link org.halim.acs.structure.ACS_StructureBase} - the contract every
  *       structure answers to: the arities it spans, forgetting an identity, storing itself.</li>
  *   <li>{@code unary} - structures over one arity, which are always some kind of graph.</li>
  *   <li>{@code binary.connector} - an identity of one arity connected to an identity of another, or not.</li>

@@ -9,6 +9,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import static org.halim.acse.structure.UnaryRestrictions.*;
+import static org.halim.acse.structure.BinaryRestrictions.*;
+
 
 /**
  * The node side as a list of edges a node, each its own int list, made the first time the node has an
@@ -25,11 +28,11 @@ public class ArrayListsNodeEdgeComponent extends NodeEdgeGraphBase {
 final ArrayList<IntArrayList> incident = new ArrayList<>();
 
 
-public ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops, boolean allowsParallelEdges) {
-	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges);
+public ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, int nodeArity, int edgeArity, boolean directed, boolean acyclic, boolean allowsLoops, boolean allowsParallelLinks) {
+	super(core, journal, nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelLinks);
 }
 
-/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelEdges read from the request, in that order; nothing is written back. */
+/** Built by name through the core's addStructure: nodeArity, edgeArity, directed, acyclic, allowsLoops, allowsParallelLinks read from the request, in that order; nothing is written back. */
 public ArrayListsNodeEdgeComponent(ACS_Core core, ACS_Journal journal, DataInputStream parameters, DataOutputStream returns) throws IOException {
 	this(core, journal, parameters.readInt(), parameters.readInt(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean(), parameters.readBoolean());
 }
@@ -52,7 +55,7 @@ void unindex(int edge, int first, int second) {
 }
 
 @Override
-IntArrayList edgesOf(int node) {
+IntArrayList edgeListOf(int node) {
 	IntArrayList held = node >= 0 && node < incident.size() ? incident.get(node) : null;
 	return held == null ? new IntArrayList() : new IntArrayList(held);
 }

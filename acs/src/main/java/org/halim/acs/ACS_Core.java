@@ -3,7 +3,7 @@ package org.halim.acs;
 import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
 import org.halim.acs.persistence.ACS_PersistenceManager;
-import org.halim.acs.structure.ACS_StructureComponentBase;
+import org.halim.acs.structure.ACS_StructureBase;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -25,9 +25,9 @@ void addArity(ACS_ArityComponentBase acseArityComponent, String description, Str
 int addCatalogRow(int arity, ACS_ArityCatalogRowBase row, String description, String comment);
 
 int getStructureCount();
-ACS_StructureComponentBase getStructure(int structure);
+ACS_StructureBase getStructure(int structure);
 
-void addStructure(ACS_StructureComponentBase acseArityComponent, String description, String comment);
+void addStructure(ACS_StructureBase acseArityComponent, String description, String comment);
 
 /** The slot stays empty; later slots do not shift. */
 void removeArity(int arity, String comment);

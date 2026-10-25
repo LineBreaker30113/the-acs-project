@@ -26,6 +26,9 @@ mean `acse`; `acsr`, `asrc` and `ascar` are the requester.)*
 - **26.** Separate projects for ACSESS and ACSED are a goal. *(Author, 2026-10-20: "making a separate maven
   module for the daemon is one of the (future) goals."; "I meant separate projects for ACSESS and ACSED
   is a goal.")*
+- **27.** Verbatim: I need you to make the daemon Windows compatible. *(2026-10-23)*
+  Complements: "ACSES splits into two packages: `acsed`, the daemon, … and `acsess`, the command line
+  tool" (acses 21): the daemon and the tool that boots it. No conflict found in the summaries.
 
 ### Details
 
@@ -100,6 +103,27 @@ mean `acse`; `acsr`, `asrc` and `ascar` are the requester.)*
   `main:journal`. *(Author, 2026-10-20: "I thought both of them [the core and the journal] can be
   expressed as the name of the database"; "Also allow the `main:core` and `main:journal` actions for
   clarity.")*
+- **28.** Verbatim: [On the weakness Claude named, a client that connects and then stalls freezing acsed:]
+  Fix: Commands like `acquire` will give a timeout value, like `acquire main timeout=5000` and after the
+  timeout the lock is released regardless, this is to ensure daemon not being stuck with a dead process.
+  [Which requests carry it:] On requests that need a timeout. [On Claude's example of agent A holding the
+  key and agent B calling `acsess acquire main timeout=5000`:] The agent A meant to call `acsess acquire
+  main timeout=5000`; every request that can be timed out can specify the timeout length, and on boot
+  the default timeout length can be set or forbidden (by not setting). [The sensitive commands,
+  picked among Claude's options:] acquire, waitInspectionReturn, inspectAt. [What forbidding the default
+  means, picked among Claude's options:] Must give one [: a sensitive command without `timeout=` is
+  refused]. *(2026-10-23 to 2026-10-24)*
+  Meaning: A sensitive command - `acquire`, `waitInspectionReturn`, `inspectAt` - can take
+  `timeout=<ms>`, how long what it starts lasts: in `acquire main timeout=5000` the key lives 5 s. Boot
+  sets the default for one that gives none, or forbids the default, and then such a command is refused.
+  Commons: "Make all of the options available as command flags" (in acses 18) and "Switches take the
+  shape `+Name` and valued flags `name=value`" (acses 20); "The ACSED will take in parameters when it is
+  booted up" (in acses 21), the default being one. Complements: "it ends with `release`, or `release
+  +force` without the key" (acses 18) gains a third end; "No, locks are not mandotary, if the data base
+  fails mean time the lock better get reaccuired" (in acses 18) gains a lock that ends by itself;
+  "`waitInspectionReturn` holds until the return" (acses 16) gains a limit; "the journal refuses a write
+  loudly" during an inspection (root 64) gains an inspection that ends by itself. No conflict found in
+  the summaries.
 
 ## Persistence
 

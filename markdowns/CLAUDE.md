@@ -39,7 +39,7 @@
 - ACS-view is the acsess GUI, a simple GUI for ACSES that allows editing and keeps the queried data in
   memory (72): in its own Maven module, `acsess-gui`, a database tool like SQL viewing tools that also
   edits, with OntoDirectory's GUI cloned in for the structure, not the views (68). As its own module,
-  it would be a seventh beside the six (21, 68).
+  it joins the root pom's modules as a seventh beside the six, renamed to acsess-gui (21, 68, 74).
 - ACS-view organizes ACS based databases, and OntoDirectory is a special version organizing files with
   ACS; both are GUI applications (69), replacing "the GUI is OntoDirectory, needing improvements" (23).
   ACS-view runs acsess like a terminal, with beginSession, one refresh being one program run and one
@@ -47,8 +47,9 @@
 - Right now there is no access control or security, not in the MVP (24).
 - `acse` is the library, not usable on its own: no working database comes from it alone, as `acses` runs
   it, but a Java program can use it directly (25, 26). `acse` replaced `acs` and `acses` replaced
-  `acse`, like "access" (27): ACS is the system, ACSE implements it, ACSES uses it for the database
-  service (28). ACSES passes requests to the core; those commands are planned in another session (65).
+  `acse`, like "access" (27): ACS is only a mathematical entity, ACSE implements it and holds
+  optimizations, and ACSES uses it for the database service; optimizations in acs stay (28, 76). ACSES
+  passes requests to the core; those commands are planned in another session (65).
 - A request is described by a line in a small string grammar, written by reflection from the methods
   the implementation marks, so no name is a literal; acsed gathers a database's lines into
   `acse-language.txt` at its root, which acsess reads (66). acsed's own commands are not journaled and
@@ -80,9 +81,11 @@
 - A loading acses uses only the database's classes: it knows only the contracts, and the database is the
   authority on implementation (50). We can make a persistence manager contract, its class in the root
   package (51). Creating a database: acses copies `acse-persistence.jar`, loads the base classes, makes
-  an empty core, saves. Loading: the jar's persistence manager finds the current folder and builds the
-  core, which loads all its instances; the name is `--calledBy`'s, or the folder's if the request didn't
-  give one (52).
+  an empty core, saves; at least hereby if it suits, acses puts the persistence manager first and
+  handles the rest with load class, writing only the persistence manager to a new folder and not copying
+  (52, 75). Loading: the jar's persistence manager finds the current folder and builds the core, which
+  loads all its instances; the name is `--calledBy`'s, or the folder's if the request didn't give one
+  (52).
 - Words: ontology in the philosophical sense, not OWL (53); an arity, one identity space (54); a
   catalog, one value per identity, an unwritten slot zero, not absent (55); a structure, data about
   relations (56); a component, what the core holds (57). An identity has its iui, the count of lesser

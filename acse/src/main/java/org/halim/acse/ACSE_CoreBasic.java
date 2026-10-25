@@ -13,7 +13,7 @@ import org.halim.acs.arity.ACS_ArityComponentBase;
 import org.halim.acse.arity.ACSE_ComposableArityCatalog;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
 import org.halim.acse.arity.sets.IdentitiesSetNegativeInt;
-import org.halim.acs.structure.ACS_StructureComponentBase;
+import org.halim.acs.structure.ACS_StructureBase;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -37,7 +37,7 @@ public class ACSE_CoreBasic implements ACS_Core, ACS_DescriptionManager {
 /** Built for this core by the factory a constructor is given, so its class is the caller's choice; a load's is the one the folder's indexer names. */
 public final ACS_Journal journal;
 final ArrayList<ACS_ArityComponentBase> arities = new ArrayList<>();
-final ArrayList<ACS_StructureComponentBase> structures = new ArrayList<>();
+final ArrayList<ACS_StructureBase> structures = new ArrayList<>();
 final int[] params = new int[2];
 /**
  * The database's root, the folder this core's stores go into: the parent of the first folder it stores
@@ -88,7 +88,7 @@ public ACS_Journal getJournal() { return journal; }
 public int getStructureCount() { return structures.size(); }
 
 @Override
-public ACS_StructureComponentBase getStructure(int structure) { return structures.get(structure); }
+public ACS_StructureBase getStructure(int structure) { return structures.get(structure); }
 
 
 @ACS_Requestable(0)
@@ -175,11 +175,11 @@ public int addStructure(DataInputStream parameters, DataOutputStream returns, St
 	Class<?> structureClass;
 	try { structureClass = Class.forName(className, false, getClass().getClassLoader()); }
 	catch(ClassNotFoundException e) { throw new IllegalArgumentException("no class " + className + " is on this database's class path"); }
-	if(!ACS_StructureComponentBase.class.isAssignableFrom(structureClass)) { throw new IllegalArgumentException(className + " is no structure"); }
+	if(!ACS_StructureBase.class.isAssignableFrom(structureClass)) { throw new IllegalArgumentException(className + " is no structure"); }
 	Constructor<?> byStream = constructorOf(structureClass, ACS_Core.class, ACS_Journal.class, DataInputStream.class, DataOutputStream.class);
 	if(byStream == null) { throw new IllegalArgumentException(className + " takes no (ACS_Core, ACS_Journal, DataInputStream, DataOutputStream), so it cannot be built by name"); }
-	ACS_StructureComponentBase structure;
-	try { structure = (ACS_StructureComponentBase) byStream.newInstance(this, journal, parameters, returns); }
+	ACS_StructureBase structure;
+	try { structure = (ACS_StructureBase) byStream.newInstance(this, journal, parameters, returns); }
 	catch(InvocationTargetException e) {
 		if(e.getCause() instanceof RuntimeException failure) { throw failure; }
 		if(e.getCause() instanceof IOException failure) { throw failure; }
@@ -191,7 +191,7 @@ public int addStructure(DataInputStream parameters, DataOutputStream returns, St
 }
 
 @Override
-public void addStructure(ACS_StructureComponentBase acseArityComponent, String description, String comment) { addComponent(structures, acseArityComponent, structureDescriptions, description, STRUCTURE, "addStructure", comment); }
+public void addStructure(ACS_StructureBase acseArityComponent, String description, String comment) { addComponent(structures, acseArityComponent, structureDescriptions, description, STRUCTURE, "addStructure", comment); }
 
 @ACS_Requestable(2)
 @Override
@@ -254,7 +254,7 @@ public long captureIdentity(int arity, long identity, String comment) {
 }
 
 void forgetEverywhere(int arity, int identity) {
-	for(ACS_StructureComponentBase structure : structures) {
+	for(ACS_StructureBase structure : structures) {
 		if(structure != null && structure.isRelatedArity(arity)) { structure.forget(arity, identity); }
 	}
 }
@@ -332,7 +332,7 @@ public List<String> store(Path folder) throws IOException {
 	}
 	for(int slot = 0; slot < structures.size(); slot++) {
 		if(structureSlots.getInt(slot) < 0) { continue; }
-		ACS_StructureComponentBase structure = structures.get(slot);
+		ACS_StructureBase structure = structures.get(slot);
 		for(int i = 0; i < structure.getArityCount(); i++) {
 			int arity = structure.getArityIdentity(i);
 			if(arities.get(arity) != null && aritySlots.getInt(arity) < 0) { table.warnings.add("structure " + slot + " spans arity " + arity + ", which was left out"); }
@@ -388,7 +388,7 @@ public void load(Path folder) throws IOException {
 		}
 		for(int slot = 0; slot < structureSlots.size(); slot++) {
 			int number = structureSlots.getInt(slot);
-			structures.add(number < 0 ? null : ACSE_PersistenceManagerBasic.read(folder.resolve(structureFile(slot)), classes, dis -> ACSE_PersistenceManagerBasic.build(classes[number], ACS_StructureComponentBase.class, this, journal, dis)));
+			structures.add(number < 0 ? null : ACSE_PersistenceManagerBasic.read(folder.resolve(structureFile(slot)), classes, dis -> ACSE_PersistenceManagerBasic.build(classes[number], ACS_StructureBase.class, this, journal, dis)));
 		}
 		root = folder.toAbsolutePath().normalize().getParent();
 	} catch(IOException | RuntimeException | Error e) {
@@ -558,7 +558,7 @@ public void doTraceableStep(byte stepPair, int[] params, int index) {
 	switch(stepPair) {
 		case ARITY -> put(arities, params[index], (ACS_ArityComponentBase) journal.getObject(params[index + 1]));
 		case -ARITY -> arities.set(params[index], null);
-		case STRUCTURE -> put(structures, params[index], (ACS_StructureComponentBase) journal.getObject(params[index + 1]));
+		case STRUCTURE -> put(structures, params[index], (ACS_StructureBase) journal.getObject(params[index + 1]));
 		case -STRUCTURE -> structures.set(params[index], null);
 		default -> throw new IllegalArgumentException("no step " + stepPair);
 	}

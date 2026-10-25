@@ -7,7 +7,7 @@ import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.sets.IdentitiesSet;
-import org.halim.acs.structure.ACS_StructureComponentBase;
+import org.halim.acs.structure.ACS_StructureBase;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -29,7 +29,7 @@ import java.util.ArrayList;
  * removing an edge would be two steps on the same thing, and their order would matter. Not multi
  * thread safe.
  * */
-public class FolderHierarchyDirectedAcyclicIntGraphComponent implements ACS_StructureComponentBase {
+public class FolderHierarchyDirectedAcyclicIntGraphComponent implements ACS_StructureBase {
 
 public static final int ROOT = 0;
 static final int ROOT_SLOT = 0;
@@ -78,6 +78,10 @@ IdentitiesSet occupied() { return core.getArity(arity).occupied(); }
 
 @Override
 public int getArityCount() { return 1; }
+
+/** It makes no arity, so it strictly causes none. */
+@Override
+public boolean isCaused(int index) { return false; }
 
 @Override
 public int getArityIdentity(int index) {
@@ -359,18 +363,18 @@ void complete(int request) {
 
 /** {@code first} becomes the parent of {@code last}, as {@link #setParent} moves it. False when it is; refused when {@code last} has another parent, since an element has one. */
 @ACS_Requestable(12)
-public boolean connectTo(int first, int last, String comment) {
-	if(isConnectedTo(first, last)) { return false; }
+public boolean relateToUnary(int first, int last, String comment) {
+	if(isRelatedToUnary(first, last)) { return false; }
 	if(parentOf(last) != ROOT) { throw new IllegalArgumentException(last + " has the parent " + parentOf(last) + " already: one parent an element"); }
 	return setParent(last, first, comment);
 }
 
 /** {@code last} back to the root, as {@link #removeParent} moves it; false when {@code first} is not its parent. */
 @ACS_Requestable(13)
-public boolean disconnectFrom(int first, int last, String comment) { return first != ROOT && parentOf(last) == first && removeParent(last, comment); }
+public boolean unrelateFromUnary(int first, int last, String comment) { return first != ROOT && parentOf(last) == first && removeParent(last, comment); }
 
 @ACS_Requestable(14)
-public boolean isConnectedTo(int first, int last) { return last != ROOT && parentOf(last) == first; }
+public boolean isRelatedToUnary(int first, int last) { return last != ROOT && parentOf(last) == first; }
 
 /** The children of {@code first}, in the order {@link #copyChildrenInto} gives them, for the outside: no request fills the caller's array. */
 @ACS_Requestable(15)
@@ -380,7 +384,7 @@ public int[] lastsOf(int first) {
 	return children;
 }
 
-/** The parent of {@code last}, one at most, as {@link #isConnectedTo} counts it. */
+/** The parent of {@code last}, one at most, as {@link #isRelatedToUnary} counts it. */
 @ACS_Requestable(16)
 public int[] firstsOf(int last) { return last == ROOT ? new int[0] : new int[] { parentOf(last) }; }
 
@@ -494,12 +498,12 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 			case 9 -> returns.writeBoolean(addChild(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 10 -> returns.writeBoolean(removeParent(parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 11 -> detach(parameters.readInt(), ACS_Actor.readString(parameters));
-			case 12 -> returns.writeBoolean(connectTo(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 13 -> returns.writeBoolean(disconnectFrom(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 12 -> returns.writeBoolean(relateToUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 13 -> returns.writeBoolean(unrelateFromUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 14 -> {
 				int first = parameters.readInt(), last = parameters.readInt();
 				query = REQUESTS[code] + "(" + first + ", " + last + ")";
-				boolean value = isConnectedTo(first, last);
+				boolean value = isRelatedToUnary(first, last);
 				recordQuery(query, Boolean.toString(value));
 				returns.writeBoolean(value);
 			}

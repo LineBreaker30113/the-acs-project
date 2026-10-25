@@ -7,7 +7,7 @@ import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.ACS_Requestable;
 import org.halim.acs.arity.sets.IdentitiesSet;
-import org.halim.acs.structure.ACS_StructureComponentBase;
+import org.halim.acs.structure.ACS_StructureBase;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -76,7 +76,7 @@ import java.util.ArrayList;
  * ends, so widening it would double the structure to reach a size this shape is not the right one for
  * anyway. Not multi thread safe.
  * */
-public class TightSetHierarchyDirectedAcyclicIntGraphComponent implements ACS_StructureComponentBase {
+public class TightSetHierarchyDirectedAcyclicIntGraphComponent implements ACS_StructureBase {
 
 /**
  * The root, which is element 0 and has no parent. Everything that lists no parent hangs off it, so
@@ -146,6 +146,10 @@ IdentitiesSet occupied() { return core.getArity(arity).occupied(); }
 
 @Override
 public int getArityCount() { return 1; }
+
+/** It makes no arity, so it strictly causes none. */
+@Override
+public boolean isCaused(int index) { return false; }
 
 @Override
 public int getArityIdentity(int index) {
@@ -684,14 +688,14 @@ void complete(int request) {
 
 /** {@link #addParent} from the other end, as the graph names it: {@code first} becomes a parent of {@code last}. */
 @ACS_Requestable(16)
-public boolean connectTo(int first, int last, String comment) { return addParent(last, first, comment); }
+public boolean relateToUnary(int first, int last, String comment) { return addParent(last, first, comment); }
 
 /** {@link #removeParent} from the other end. */
 @ACS_Requestable(17)
-public boolean disconnectFrom(int first, int last, String comment) { return removeParent(last, first, comment); }
+public boolean unrelateFromUnary(int first, int last, String comment) { return removeParent(last, first, comment); }
 
 @ACS_Requestable(18)
-public boolean isConnectedTo(int first, int last) { return hasParent(last, first); }
+public boolean isRelatedToUnary(int first, int last) { return hasParent(last, first); }
 
 /** The children of {@code first}, in the order {@link #copyChildrenInto} gives them, for the outside: no request fills the caller's array. */
 @ACS_Requestable(19)
@@ -851,12 +855,12 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 			case 13 -> returns.writeBoolean(removeChild(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 14 -> detach(parameters.readInt(), ACS_Actor.readString(parameters));
 			case 15 -> returns.writeInt(tighten(parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 16 -> returns.writeBoolean(connectTo(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 17 -> returns.writeBoolean(disconnectFrom(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 16 -> returns.writeBoolean(relateToUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 17 -> returns.writeBoolean(unrelateFromUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 18 -> {
 				int first = parameters.readInt(), last = parameters.readInt();
 				query = REQUESTS[code] + "(" + first + ", " + last + ")";
-				boolean value = isConnectedTo(first, last);
+				boolean value = isRelatedToUnary(first, last);
 				recordQuery(query, Boolean.toString(value));
 				returns.writeBoolean(value);
 			}

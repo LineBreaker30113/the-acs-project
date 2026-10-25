@@ -26,5 +26,10 @@ void setArityCatalogRowClassDescription(String className, String arityDescriptio
 String getStructureClassDescription(String className);
 void setStructureClassDescription(String className, String arityDescription);
 
+int getClassNameCount();
+Class<?> getClassName(int index);
+
+String getClassDescription(Class<?> classType);
+void setClassDescription(Class<?> classType, String arityDescription);
 
 }

@@ -5,8 +5,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_Requestable;
-import org.halim.acs.structure.ternary.primary_relation_complement.ACS_PrimaryRelationComplementComponentBase;
+import org.halim.acs.structure.ACS_TernaryStructure;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -33,14 +32,14 @@ import java.util.Arrays;
  * a complement leaving its arity is dropped from every relation holding it, and the relations stay. Not
  * multi thread safe.
  * */
-public class ArrayListsPrimaryRelationComplementComponent implements ACS_PrimaryRelationComplementComponentBase {
+public class ArrayListsPrimaryRelationComplementComponent implements ACS_TernaryStructure {
 
 /** The primary taken by the relation, (primary, relation); the negative pair drops it. */
 static final byte TAKE = 1;
 /** The complement given by the relation, (relation, complement); the negative pair drops it. */
 static final byte GIVE = 2;
 /** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = requestNames(ArrayListsPrimaryRelationComplementComponent.class);
+static final String[] REQUESTS = ACS_Actor.requestNames(ArrayListsPrimaryRelationComplementComponent.class);
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -85,12 +84,18 @@ public int getArityIdentity(int index) {
 	};
 }
 
+/** It keeps every set of relations, so it is the most formal case. */
+public int getRestrictions() { return 0; }
+
+/** It makes no arity, so it strictly causes none; a via it captures through the core is the client's arity's too. */
+@Override
+public boolean isCaused(int index) { return false; }
+
 @Override
 public boolean isRelatedArity(int identity) { return identity == primaryArity || identity == relationArity || identity == complementArity; }
 
 
 /** The relation takes the primary. False when it already does; refuses an identity its arity does not hold. */
-@ACS_Requestable(0)
 @Override
 public boolean take(int primary, int relation, String comment) {
 	requireLive(primaryArity, primary);
@@ -103,7 +108,6 @@ public boolean take(int primary, int relation, String comment) {
 }
 
 /** The relation no longer takes the primary; false when it did not. */
-@ACS_Requestable(1)
 @Override
 public boolean untake(int primary, int relation, String comment) {
 	if(!takes(relation, primary)) { return false; }
@@ -114,7 +118,6 @@ public boolean untake(int primary, int relation, String comment) {
 }
 
 /** The relation gives the complement, as {@link #take} takes. */
-@ACS_Requestable(2)
 @Override
 public boolean give(int relation, int complement, String comment) {
 	requireLive(relationArity, relation);
@@ -127,7 +130,6 @@ public boolean give(int relation, int complement, String comment) {
 }
 
 /** The relation no longer gives the complement; false when it did not. */
-@ACS_Requestable(3)
 @Override
 public boolean ungive(int relation, int complement, String comment) {
 	if(!gives(relation, complement)) { return false; }
@@ -141,15 +143,14 @@ public boolean ungive(int relation, int complement, String comment) {
  * The relation takes the primary and gives the complement, as one request, so the two are related along
  * with whatever the relation holds already. False when it did both already.
  * */
-@ACS_Requestable(4)
 @Override
-public boolean relate(int primary, int relation, int complement, String comment) {
+public boolean relateToTernary(int primary, int relation, int complement, String comment) {
 	requireLive(primaryArity, primary);
 	requireLive(relationArity, relation);
 	requireLive(complementArity, complement);
 	boolean taking = !takes(relation, primary), giving = !gives(relation, complement);
 	if(!taking && !giving) { return false; }
-	int request = journal.beginRecordingActivity(this, "relate", params, comment);
+	int request = journal.beginRecordingActivity(this, "relateToTernary", params, comment);
 	if(taking) { record(TAKE, primary, relation); }
 	if(giving) { record(GIVE, relation, complement); }
 	complete(request);
@@ -157,12 +158,11 @@ public boolean relate(int primary, int relation, int complement, String comment)
 }
 
 /** The relation drops both the primary and the complement, as one request; false when it held neither. */
-@ACS_Requestable(5)
 @Override
-public boolean unrelate(int primary, int relation, int complement, String comment) {
+public boolean unrelateFromTernary(int primary, int relation, int complement, String comment) {
 	boolean taking = takes(relation, primary), giving = gives(relation, complement);
 	if(!taking && !giving) { return false; }
-	int request = journal.beginRecordingActivity(this, "unrelate", params, comment);
+	int request = journal.beginRecordingActivity(this, "unrelateFromTernary", params, comment);
 	if(taking) { record((byte) -TAKE, primary, relation); }
 	if(giving) { record((byte) -GIVE, relation, complement); }
 	complete(request);
@@ -170,15 +170,13 @@ public boolean unrelate(int primary, int relation, int complement, String commen
 }
 
 /** Whether the relation takes the primary and gives the complement. */
-@ACS_Requestable(6)
 @Override
-public boolean isRelated(int primary, int relation, int complement) { return takes(relation, primary) && gives(relation, complement); }
+public boolean isRelatedToTernary(int primary, int relation, int complement) { return takes(relation, primary) && gives(relation, complement); }
 
 /**
  * What the relation takes becomes {@code primaries}, a repeat counting once: every other primary dropped,
  * then each new one taken, as one request. False when nothing changes.
  * */
-@ACS_Requestable(7)
 @Override
 public boolean setTaken(int relation, int[] primaries, String comment) {
 	requireLive(relationArity, relation);
@@ -195,7 +193,6 @@ public boolean setTaken(int relation, int[] primaries, String comment) {
 }
 
 /** What the relation gives becomes {@code complements}, as {@link #setTaken} sets what it takes. */
-@ACS_Requestable(8)
 @Override
 public boolean setGiven(int relation, int[] complements, String comment) {
 	requireLive(relationArity, relation);
@@ -213,38 +210,30 @@ public boolean setGiven(int relation, int[] complements, String comment) {
 
 
 /** The primaries the relation takes, in the order taken. */
-@ACS_Requestable(9)
 @Override
 public int[] takenOf(int relation) { return arrayOf(listAt(taken, relation)); }
 
 /** The complements the relation gives, in the order given. */
-@ACS_Requestable(10)
 @Override
 public int[] givenOf(int relation) { return arrayOf(listAt(given, relation)); }
 
 /** The relations taking the primary, ascending. */
-@ACS_Requestable(11)
 @Override
 public int[] takersOf(int primary) { return sorted(listAt(takers, primary)); }
 
 /** The relations giving the complement, ascending. */
-@ACS_Requestable(12)
 @Override
 public int[] giversOf(int complement) { return sorted(listAt(givers, complement)); }
 
-@ACS_Requestable(13)
 @Override
 public int takenCount(int relation) { return sizeOf(listAt(taken, relation)); }
 
-@ACS_Requestable(14)
 @Override
 public int givenCount(int relation) { return sizeOf(listAt(given, relation)); }
 
-@ACS_Requestable(15)
 @Override
 public int takerCount(int primary) { return sizeOf(listAt(takers, primary)); }
 
-@ACS_Requestable(16)
 @Override
 public int giverCount(int complement) { return sizeOf(listAt(givers, complement)); }
 
@@ -351,9 +340,9 @@ public static ArrayListsPrimaryRelationComplementComponent loadFrom(ACS_Core cor
 
 
 /**
- * The requests, by code in the order of the marks: each reads its inputs, calls the public method, which
- * keeps its checks, and writes the result. A read is recorded as a query: its method's name and inputs,
- * then its answer, or its refusal; a list is answered by its length.
+ * The requests, by the codes {@link ACS_TernaryStructure} marks: each reads its inputs, calls the public method,
+ * which keeps its checks, and writes the result. A read is recorded as a query: its method's name and
+ * inputs, then its answer, or its refusal; a list is answered by its length.
  * */
 @Override
 public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
@@ -361,76 +350,34 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 	String query = null;
 	try {
 		switch(code) {
-			case 0 -> returns.writeBoolean(take(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(untake(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2 -> returns.writeBoolean(give(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 3 -> returns.writeBoolean(ungive(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 4 -> returns.writeBoolean(relate(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 5 -> returns.writeBoolean(unrelate(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 6 -> {
+			case 0 -> returns.writeBoolean(relateToTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 1 -> returns.writeBoolean(unrelateFromTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 2 -> {
 				int primary = parameters.readInt(), relation = parameters.readInt(), complement = parameters.readInt();
 				query = REQUESTS[code] + "(" + primary + ", " + relation + ", " + complement + ")";
-				boolean value = isRelated(primary, relation, complement);
+				boolean value = isRelatedToTernary(primary, relation, complement);
 				recordQuery(query, Boolean.toString(value));
 				returns.writeBoolean(value);
 			}
+			case 3 -> returns.writeBoolean(take(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 4 -> returns.writeBoolean(untake(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 5 -> returns.writeBoolean(give(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 6 -> returns.writeBoolean(ungive(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
 			case 7 -> returns.writeBoolean(setTaken(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
 			case 8 -> returns.writeBoolean(setGiven(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 9 -> {
-				int relation = parameters.readInt();
-				query = REQUESTS[code] + "(" + relation + ")";
-				int[] value = takenOf(relation);
+			case 9 -> returns.writeBoolean(moveTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 10 -> returns.writeBoolean(mergeTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
+			case 11, 12, 13, 14 -> {
+				int identity = parameters.readInt();
+				query = REQUESTS[code] + "(" + identity + ")";
+				int[] value = switch(code) {
+					case 11 -> takenOf(identity);
+					case 12 -> givenOf(identity);
+					case 13 -> takersOf(identity);
+					default -> giversOf(identity);
+				};
 				recordQuery(query, "int[" + value.length + "]");
 				writeInts(returns, value);
-			}
-			case 10 -> {
-				int relation = parameters.readInt();
-				query = REQUESTS[code] + "(" + relation + ")";
-				int[] value = givenOf(relation);
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 11 -> {
-				int primary = parameters.readInt();
-				query = REQUESTS[code] + "(" + primary + ")";
-				int[] value = takersOf(primary);
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 12 -> {
-				int complement = parameters.readInt();
-				query = REQUESTS[code] + "(" + complement + ")";
-				int[] value = giversOf(complement);
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 13 -> {
-				int relation = parameters.readInt();
-				query = REQUESTS[code] + "(" + relation + ")";
-				int value = takenCount(relation);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 14 -> {
-				int relation = parameters.readInt();
-				query = REQUESTS[code] + "(" + relation + ")";
-				int value = givenCount(relation);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 15 -> {
-				int primary = parameters.readInt();
-				query = REQUESTS[code] + "(" + primary + ")";
-				int value = takerCount(primary);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 16 -> {
-				int complement = parameters.readInt();
-				query = REQUESTS[code] + "(" + complement + ")";
-				int value = giverCount(complement);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
 			}
 			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
 		}
@@ -442,6 +389,7 @@ public boolean request(DataInputStream parameters, DataOutputStream returns) thr
 	return true;
 }
 
+
 void recordQuery(String request, String response) {
 	journal.recordQueryRequest(request);
 	journal.recordQueryResponse(response);
@@ -450,17 +398,6 @@ void recordQuery(String request, String response) {
 /** What a refused request writes back: the error's message, or its class when it has none. */
 static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
 
-/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
-static String[] requestNames(Class<?> actor) {
-	ArrayList<String> names = new ArrayList<>();
-	for(Method method : actor.getMethods()) {
-		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
-		if(mark == null || method.isBridge()) { continue; }
-		while(names.size() <= mark.value()) { names.add(null); }
-		names.set(mark.value(), method.getName());
-	}
-	return names.toArray(new String[0]);
-}
 
 /** An int[] on the wire: its length, then its elements. */
 static void writeInts(DataOutputStream dos, int[] ints) throws IOException {

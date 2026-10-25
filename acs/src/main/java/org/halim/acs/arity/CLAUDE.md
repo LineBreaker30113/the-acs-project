@@ -11,4 +11,11 @@
   captureNotForget are not needed either, more later (5).
 - A truncate is not needed right now but can come later; compacten, which may become "compress", can
   swap the dead entries with the last ones and truncate (8).
+- A catalog row is not an actor; the arity's request calls its rows' methods, and rows stay in ACS
+  only for convenience so do not move them, though they can move to ACSE (10, 11).
+- The client is not supposed to see imv, only their iui, never imv, so a range read must skip removed
+  ones and yield only occupied identities (12).
+- An arity's identities set can be set and changed; since ACS is only a mathematical entity, replacing
+  is not journaled (13).
+- `catalog/CLAUDE.md`: catalog rows and capacity.
 - `sets/CLAUDE.md`: the identities set.

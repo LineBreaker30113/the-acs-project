@@ -47,19 +47,19 @@ default void getRequestables(DataOutputStream dos) throws IOException { writeReq
 
 /**
  * Writes {@code name(type name, ...) result} and a line break, in UTF-8, for every public method of
- * {@code actor} marked {@link ACS_Requestable}, in code order. Names come from reflection, so the class
+ * {@code actor} marked {@link ACS_Requestable}, on itself or on the contract declaring it, in code order. Names come from reflection, so the class
  * must be compiled with {@code -parameters}; a type the grammar lacks, a code repeated or skipped,
  * and a parameter without its name are refused before anything is written.
  * */
 static void writeRequestables(Class<?> actor, DataOutputStream dos) throws IOException {
 	List<Method> marked = Arrays.stream(actor.getMethods())
-		.filter(method -> !method.isBridge() && !method.isSynthetic() && method.isAnnotationPresent(ACS_Requestable.class))
-		.sorted(Comparator.comparingInt(method -> method.getAnnotation(ACS_Requestable.class).value()))
+		.filter(method -> !method.isBridge() && !method.isSynthetic() && markOf(actor, method) != null)
+		.sorted(Comparator.comparingInt(method -> markOf(actor, method).value()))
 		.toList();
 	StringBuilder lines = new StringBuilder();
 	for(int code = 0; code < marked.size(); code++) {
 		Method method = marked.get(code);
-		int given = method.getAnnotation(ACS_Requestable.class).value();
+		int given = markOf(actor, method).value();
 		if(given != code) { throw new IllegalStateException(actor.getName() + "." + method.getName() + " has code " + given + " where " + code + " is due; codes run 0 to " + (marked.size() - 1) + " once each"); }
 		lines.append(method.getName()).append('(');
 		Parameter[] parameters = method.getParameters();
@@ -71,6 +71,36 @@ static void writeRequestables(Class<?> actor, DataOutputStream dos) throws IOExc
 		lines.append(") ").append(method.getReturnType() == void.class ? "void" : typeName(actor, method, method.getReturnType())).append('\n');
 	}
 	dos.write(lines.toString().getBytes(StandardCharsets.UTF_8));
+}
+
+/** The names of {@code actor}'s requests by their codes, from the marks as {@link #writeRequestables} reads them, so no name is a literal. */
+static String[] requestNames(Class<?> actor) {
+	java.util.ArrayList<String> names = new java.util.ArrayList<>();
+	for(Method method : actor.getMethods()) {
+		ACS_Requestable mark = method.isBridge() ? null : markOf(actor, method);
+		if(mark == null) { continue; }
+		while(names.size() <= mark.value()) { names.add(null); }
+		names.set(mark.value(), method.getName());
+	}
+	return names.toArray(new String[0]);
+}
+
+/**
+ * The mark of {@code method}: its own, or the one on the same method where an interface of {@code type}
+ * declares it, since the contract marks a request and the class implementing it carries no mark.
+ * */
+private static ACS_Requestable markOf(Class<?> type, Method method) {
+	if(type == null) { return null; }
+	try {
+		ACS_Requestable mark = type.getDeclaredMethod(method.getName(), method.getParameterTypes()).getAnnotation(ACS_Requestable.class);
+		if(mark != null) { return mark; }
+	}
+	catch(NoSuchMethodException absent) { }
+	for(Class<?> contract : type.getInterfaces()) {
+		ACS_Requestable mark = markOf(contract, method);
+		if(mark != null) { return mark; }
+	}
+	return markOf(type.getSuperclass(), method);
 }
 
 /** The grammar's types: the primitives but char, and String, each also as an array; a result may also be void. */
