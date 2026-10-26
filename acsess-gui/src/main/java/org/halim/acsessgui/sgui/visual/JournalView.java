@@ -78,8 +78,10 @@ public void onSelectedDatabaseChange(ACSESS_GUI_Service.DatabaseService database
 		state.setText("No database is shown.");
 		return;
 	}
-	app.request("read the journal of " + database.getName(), () -> new Standing(database.getCurrentActivityIndex(), database.getPendingActivityCount()), standing ->
-		state.setText("<html>" + WelcomePage.escaped(database.getName()) + "<br>activity index: " + standing.index() + "<br>undone, redo holds: " + standing.pending() + "</html>"));
+	app.request("read the journal of " + database.getName(), () -> new Standing(database.getCurrentActivityIndex(), database.getPendingActivityCount()), standing -> {
+		updated.run();
+		state.setText("<html>" + WelcomePage.escaped(database.getName()) + "<br>activity index: " + standing.index() + "<br>undone, redo holds: " + standing.pending() + "</html>");
+	});
 }
 
 }

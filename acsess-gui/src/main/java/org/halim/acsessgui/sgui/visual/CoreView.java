@@ -87,6 +87,7 @@ public void onSelectedDatabaseChange(ACSESS_GUI_Service.DatabaseService database
 	}, standing -> {
 		long arities = standing.components().arities().stream().filter(a -> !a.isRemoved()).count();
 		long structures = standing.components().structures().stream().filter(s -> !s.isRemoved()).count();
+		updated.run();
 		state.setText("<html>" + WelcomePage.escaped(database.getName()) + "<br>core: " + WelcomePage.escaped(standing.core()) + "<br>arities: " + arities + "<br>structures: " + structures + "</html>");
 	});
 }

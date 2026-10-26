@@ -1,16 +1,17 @@
 package org.halim.acsessgui.sgui.visual;
 
 import javax.swing.*;
+import java.awt.*;
 import java.util.ArrayList;
 
 
-/** One row of the workspace: its views side by side, as the workspace held all of them before it had rows. */
+/** One row of the workspace: its views side by side, each column the row's width over the count, whatever a view shows, so an update never moves a neighbor. */
 public class WorkspaceRow extends JPanel {
 
 public final ArrayList<WorkPanelWrapper> panels = new ArrayList<>();
 
 public WorkspaceRow() {
-	setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+	setLayout(new GridLayout(1, 0));
 	setOpaque(false);
 }
 

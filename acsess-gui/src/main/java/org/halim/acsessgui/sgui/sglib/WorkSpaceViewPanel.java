@@ -11,6 +11,8 @@ import java.awt.*;
 public abstract class WorkSpaceViewPanel extends JPanel implements WorkspaceListener {
 
 protected final ApplicationController app;
+/** Called when the view shows something new; the header it sits in flashes. */
+public Runnable updated = () -> { };
 
 protected WorkSpaceViewPanel(ApplicationController app) {
 	this.app = app;

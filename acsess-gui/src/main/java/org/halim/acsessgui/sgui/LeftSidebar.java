@@ -9,7 +9,7 @@ import javax.swing.*;
 import java.awt.*;
 
 
-/** The sidebar, as OntoDirectory's: the anchors, acsed's databases, and the toggles of the workspace's views; it collapses to its icons. */
+/** The sidebar, as OntoDirectory's: the anchors and acsed's databases at the top, the workspace's view buttons at the bottom; it collapses to its icons. */
 public class LeftSidebar extends JPanel {
 
 public final GUI_RootPanel owner;
@@ -38,9 +38,12 @@ public LeftSidebar(GUI_RootPanel owner) {
 	add(anchorSection);
 	add(Box.createVerticalStrut(32));
 	add(loadedDatabasesSection);
-	add(Box.createVerticalStrut(32));
-	// The toggles outgrow a short window, so they scroll.
-	JScrollPane toggles = new JScrollPane(workspaceSection, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+	// The glue pushes the view buttons to the bottom.
+	add(Box.createVerticalGlue());
+	// The buttons outgrow a short window, so they scroll; the pane is no taller than they are, so the glue takes the spare height.
+	JScrollPane toggles = new JScrollPane(workspaceSection, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER) {
+		@Override public Dimension getMaximumSize() { return new Dimension(Short.MAX_VALUE, getPreferredSize().height); }
+	};
 	toggles.setBorder(BorderFactory.createEmptyBorder());
 	toggles.getVerticalScrollBar().setUnitIncrement(16);
 	toggles.setAlignmentX(Component.RIGHT_ALIGNMENT);

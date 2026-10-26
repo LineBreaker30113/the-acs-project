@@ -6,6 +6,7 @@ import org.halim.acsessgui.mhexagon.ACSESS_GUI_Service.Components;
 import org.halim.acsessgui.mhexagon.ACSESS_GUI_Service.Row;
 import org.halim.acsessgui.mhexagon.ACSESS_GUI_Service.Structure;
 import org.halim.acsessgui.sgui.ApplicationController;
+import org.halim.acsessgui.sgui.sglib.CodeColors;
 import org.halim.acsessgui.sgui.sglib.Utilities;
 import org.halim.acsessgui.sgui.sglib.WorkSpaceViewPanel;
 import org.halim.acsessgui.sgui.sglib.WorkspaceElement;
@@ -17,21 +18,20 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 
 /**
  * A content panel: the selection at its top chooses the kind it shows, and it shows one element of the
- * type that kind takes, or, for the structures and the procedure, the shown database itself. Only one
+ * type that kind takes, or, for the procedure, the shown database itself. Only one
  * panel listens for a kind; choosing a kind another panel holds swaps the two panels' states. It takes an
  * element by a click on the focused element of its type, or by a drop of one, and never follows the focus
  * by itself; the arity element also by typing the identity's number.
  * <p>
  * The arity's kinds: its summary lists its rows and captures and deletes its identities; its row lists
  * the row's values over the identities, a page at a time, and its element the identity's value in every
- * row, both edited in place, each edit one set request, so one journal activity. The structure's: the
- * structures, every structure and the arities it spans on a plane; a structure's summary, its class,
+ * row, both edited in place, each edit one set request, so one journal activity. The structure's: a
+ * structure's summary, its class,
  * description and spanned arities; its content, the structure with its arities on a plane, its
  * connections waiting for their requests. The class: the stored class decompiled.
  * <p>
@@ -41,45 +41,65 @@ import java.util.List;
 public class ContentPanel extends WorkSpaceViewPanel {
 
 static final int PAGE_SIZE = 100;
-static final String NO_KIND = "(choose a kind)";
+static final String NO_KIND = "(none)";
 static final String LINES = "lines", PLANE = "plane", CODE = "code";
 
 /** The content panels' selection, in its order: the label it shows, and the element type it takes, null when it takes none. */
 public enum Kind {
-	ARITY_SUMMARY("arity summary", Type.ARITY), ARITY_ROW("arity row", Type.ARITY_ROW), ARITY_ELEMENT("arity element", Type.ARITY_IDENTITY),
-	STRUCTURES("structures", null), STRUCTURE_SUMMARY("structure summary", Type.STRUCTURE), STRUCTURE_CONTENT("structure content", Type.STRUCTURE),
-	PROCEDURE("procedure", null), CLASS("class", Type.CLASS);
+	ARITY_SUMMARY("arity summary", Type.ARITY, "table.svg"), ARITY_ROW("arity row", Type.ARITY_ROW, "align-left-simple.svg"), ARITY_ELEMENT("arity element", Type.ARITY_IDENTITY, "member-of.svg"),
+	STRUCTURE_SUMMARY("structure summary", Type.STRUCTURE, "building.svg"), STRUCTURE_CONTENT("structure content", Type.STRUCTURE, "wall.svg"),
+	PROCEDURE("procedure", null, "flow-arrow.svg"), CLASS("class", Type.CLASS, "code.svg");
 
 	public final String label;
 	public final Type takes;
+	/** The icon in the resources' {@code icons/}. */
+	public final String icon;
 
-	Kind(String label, Type takes) {
+	Kind(String label, Type takes, String icon) {
 		this.label = label;
 		this.takes = takes;
+		this.icon = icon;
 	}
+
+	public Icon icon(int size) { return Utilities.loadSVGIcon("icons/" + icon, size, size, Utilities.ELEMENT_TEXT_PRIMARY); }
+
+	/** Whether the type is one this kind takes: the arity element takes the arity it shows an identity of, besides the identity. */
+	public boolean takes(Type type) { return type != null && (type == takes || (this == ARITY_ELEMENT && type == Type.ARITY)); }
 
 	@Override public String toString() { return label; }
 }
 
-final JComboBox<Object> selection = new JComboBox<>();
+final JButton selection = Utilities.iconButton(Utilities.loadSVGIcon("icons/app-window.svg", 18, 18, Utilities.ELEMENT_TEXT_PRIMARY), "Content type");
+final JPopupMenu kinds = new JPopupMenu();
+final JButton transpose = Utilities.iconButton(Utilities.loadSVGIcon("icons/shuffle-simple.svg", 16, 16, Utilities.ELEMENT_TEXT_PRIMARY), "Transpose: the lines as columns");
+/** Receives the header title, the chosen kind's name, and its icon. */
+public java.util.function.BiConsumer<String, Icon> heading = (name, icon) -> { };
 final JLabel title = new JLabel(" ");
 final JLabel focus = new JLabel(" ");
 final JLabel pageLabel = new JLabel(" ");
 final JPanel pager = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
 final JPanel summaryTools = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
 final JPanel elementTools = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-final JTextField typedArity = new JTextField(4), typedIdentity = new JTextField(8);
+final JTextField typedIdentity = new JTextField(8);
 final CardLayout cards = new CardLayout();
 final JPanel body = new JPanel(cards);
 final LineModel model = new LineModel();
-final JTable table = new JTable(model);
+final JTable table = new JTable(model) {
+	/** An identity's line names its identity: the arity row view lists the values alone. */
+	@Override
+	public String getToolTipText(java.awt.event.MouseEvent event) {
+		int row = rowAtPoint(event.getPoint()), column = columnAtPoint(event.getPoint());
+		int line = row < 0 || column < 0 ? -1 : model.lineOf(row, column);
+		WorkspaceElement lineElement = line < 0 || line >= model.shown.elements.length ? null : model.shown.elements[line];
+		return lineElement != null && lineElement.type() == Type.ARITY_IDENTITY ? lineElement.toString() : null;
+	}
+};
 final StructurePlane plane;
-final JTextArea code = new JTextArea();
+final org.fife.ui.rsyntaxtextarea.RSyntaxTextArea code = new org.fife.ui.rsyntaxtextarea.RSyntaxTextArea();
 Kind kind;
 WorkspaceElement element;
 String databaseName;
 int page = 0, pages = 1;
-boolean selecting;
 
 /** A value a line edits: the row and the identity it is set for. */
 record Edit(Row row, long identity) {}
@@ -97,21 +117,39 @@ record Plane(String title, List<StructurePlane.Node> nodes, List<StructurePlane.
 /** A class's source. */
 record Code(String title, String source) {}
 
+/** The lines as rows, or transposed: a column each, under their first cell's text or their number, with the fields as rows. */
 class LineModel extends AbstractTableModel {
 	Shown shown = Shown.note(" ");
+	boolean transposed;
+	/** Whether the first column is the lines' number: it has no name above it and stays narrow. */
+	boolean indexFirst;
 
-	@Override public int getRowCount() { return shown.cells.length; }
+	/** The line a table cell shows, -1 for the transposed field names. */
+	int lineOf(int row, int column) { return transposed ? column - 1 : row; }
 
-	@Override public int getColumnCount() { return shown.columns.length; }
+	/** The field a table cell shows. */
+	int fieldOf(int row, int column) { return transposed ? row : column; }
 
-	@Override public String getColumnName(int column) { return shown.columns[column]; }
+	@Override public int getRowCount() { return transposed ? shown.columns.length : shown.cells.length; }
 
-	@Override public Object getValueAt(int line, int column) { return shown.cells[line][column]; }
-
-	@Override public boolean isCellEditable(int line, int column) { return column == shown.editColumn && shown.edits[line] != null; }
+	@Override public int getColumnCount() { return transposed ? shown.cells.length + 1 : shown.columns.length; }
 
 	@Override
-	public void setValueAt(Object edited, int line, int column) {
+	public String getColumnName(int column) {
+		if(!transposed) { return indexFirst && column == 0 ? "" : shown.columns[column]; }
+		if(column == 0) { return ""; }
+		return shown.columns.length > 1 ? String.valueOf(shown.cells[column - 1][0]) : String.valueOf(column);
+	}
+
+	@Override public Object getValueAt(int row, int column) { return transposed ? (column == 0 ? shown.columns[row] : shown.cells[column - 1][row]) : shown.cells[row][column]; }
+
+	@Override public boolean isCellEditable(int row, int column) { return lineOf(row, column) >= 0 && fieldOf(row, column) == shown.editColumn && shown.edits[lineOf(row, column)] != null; }
+
+	@Override
+	public void setValueAt(Object edited, int row, int column) {
+		int line = lineOf(row, column);
+		if(line < 0) { return; }
+		column = fieldOf(row, column);
 		String value = String.valueOf(edited);
 		if(value.equals(String.valueOf(shown.cells[line][column]))) { return; }
 		ACSESS_GUI_Service.DatabaseService database = database();
@@ -124,12 +162,19 @@ class LineModel extends AbstractTableModel {
 
 public ContentPanel(ApplicationController app) {
 	super(app);
-	selection.addItem(NO_KIND);
-	for(Kind each : Kind.values()) { selection.addItem(each); }
-	selection.addActionListener(e -> {
-		if(selecting) { return; }
-		Object chosen = selection.getSelectedItem();
-		if(chosen instanceof Kind wanted) { app.wsModeller.claim(this, wanted); } else { assume(null, null); }
+	JMenuItem none = new JMenuItem(NO_KIND);
+	none.addActionListener(e -> assume(null, null));
+	kinds.add(none);
+	for(Kind each : Kind.values()) {
+		JMenuItem item = new JMenuItem(each.label, each.icon(18));
+		item.addActionListener(e -> app.wsModeller.claim(this, each));
+		kinds.add(item);
+	}
+	selection.addActionListener(e -> kinds.show(selection, 0, selection.getHeight()));
+	transpose.addActionListener(e -> {
+		model.transposed = !model.transposed;
+		model.fireTableStructureChanged();
+		Utilities.fitColumns(table, model.indexFirst && !model.transposed);
 	});
 
 	JButton previous = new JButton("<");
@@ -148,10 +193,15 @@ public ContentPanel(ApplicationController app) {
 	JButton showTyped = new JButton("Show");
 	showTyped.addActionListener(e -> showTyped());
 	typedIdentity.addActionListener(e -> showTyped());
-	elementTools.add(new JLabel("arity"));
-	elementTools.add(typedArity);
+	JButton previousIdentity = new JButton("<"), nextIdentity = new JButton(">");
+	previousIdentity.setToolTipText("The previous identity of this arity");
+	nextIdentity.setToolTipText("The next identity of this arity");
+	previousIdentity.addActionListener(e -> step(-1));
+	nextIdentity.addActionListener(e -> step(1));
 	elementTools.add(new JLabel("identity"));
+	elementTools.add(previousIdentity);
 	elementTools.add(typedIdentity);
+	elementTools.add(nextIdentity);
 	elementTools.add(showTyped);
 	JPanel tools = new JPanel();
 	tools.setLayout(new BoxLayout(tools, BoxLayout.Y_AXIS));
@@ -165,7 +215,6 @@ public ContentPanel(ApplicationController app) {
 
 	JPanel top = new JPanel(new BorderLayout(0, 4));
 	top.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-	top.add(selection, BorderLayout.NORTH);
 	title.setForeground(Utilities.ELEMENT_TEXT_PRIMARY);
 	focus.setForeground(Utilities.ELEMENT_TEXT_SECONDARY);
 	top.add(title, BorderLayout.CENTER);
@@ -177,13 +226,14 @@ public ContentPanel(ApplicationController app) {
 	add(top, BorderLayout.NORTH);
 
 	table.setFillsViewportHeight(true);
+	ToolTipManager.sharedInstance().registerComponent(table);
 	table.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
 	table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
 		@Override
 		public Component getTableCellRendererComponent(JTable t, Object value, boolean isSelected, boolean hasFocus, int line, int column) {
 			Component cell = super.getTableCellRendererComponent(t, value, isSelected, hasFocus, line, column);
 			String text = String.valueOf(value);
-			if(!isSelected) { cell.setForeground(column == model.shown.editColumn && text.startsWith("(") && text.endsWith(")") ? Utilities.REFUSED_COLOR : Utilities.ELEMENT_TEXT_PRIMARY); }
+			if(!isSelected) { cell.setForeground(model.lineOf(line, column) >= 0 && model.fieldOf(line, column) == model.shown.editColumn && text.startsWith("(") && text.endsWith(")") ? Utilities.REFUSED_COLOR : Utilities.ELEMENT_TEXT_PRIMARY); }
 			return cell;
 		}
 	});
@@ -193,11 +243,17 @@ public ContentPanel(ApplicationController app) {
 	code.setTabSize(4);
 	body.add(new JScrollPane(table), LINES);
 	body.add(plane, PLANE);
-	body.add(new JScrollPane(code), CODE);
+	CodeColors.apply(code);
+	org.fife.ui.rtextarea.RTextScrollPane codePane = new org.fife.ui.rtextarea.RTextScrollPane(code);
+	codePane.getGutter().setBackground(Utilities.LIST_BG);
+	codePane.getGutter().setLineNumberColor(Utilities.ELEMENT_TEXT_SECONDARY);
+	body.add(codePane, CODE);
 	add(body, BorderLayout.CENTER);
 	WorkspaceElement.Transfer.install(table, point -> {
-		int line = table.rowAtPoint(point);
-		return line < 0 || table.columnAtPoint(point) == model.shown.editColumn ? null : model.shown.elements[line];
+		int row = table.rowAtPoint(point), column = table.columnAtPoint(point);
+		if(row < 0 || column < 0) { return null; }
+		int line = model.lineOf(row, column);
+		return line < 0 || model.fieldOf(row, column) == model.shown.editColumn ? null : model.shown.elements[line];
 	}, app.wsModeller::click, this::accepts, this::take);
 	WorkspaceElement.Transfer.target(this, this::accepts, this::take);
 	WorkspaceElement.Transfer.target(top, this::accepts, this::take);
@@ -205,11 +261,24 @@ public ContentPanel(ApplicationController app) {
 	show(Shown.note("Choose a kind, then click a focused element of it twice, or drop one here."));
 }
 
+/** A kind's label as a header title: each word capitalized. */
+static String titled(String label) {
+	StringBuilder words = new StringBuilder();
+	for(String word : label.split(" ")) { words.append(words.isEmpty() ? "" : " ").append(Character.toUpperCase(word.charAt(0))).append(word.substring(1)); }
+	return words.toString();
+}
+
+/** The button choosing the kind, which the panel's header holds. */
+public JButton getChooser() { return selection; }
+
+/** The button turning the lines into columns and back, which the panel's header holds. */
+public JButton getTranspose() { return transpose; }
+
 public Kind getKind() { return kind; }
 
 public WorkspaceElement getElement() { return element; }
 
-boolean accepts(WorkspaceElement dropped) { return kind != null && kind.takes != null && dropped.type() == kind.takes; }
+boolean accepts(WorkspaceElement dropped) { return kind != null && kind.takes(dropped.type()); }
 
 /** The element, clicked once focused, dropped here or typed, if of the type this panel's kind takes. */
 public void take(WorkspaceElement taken) {
@@ -218,17 +287,31 @@ public void take(WorkspaceElement taken) {
 	page = 0;
 	ACSESS_GUI_Service.DatabaseService database = database();
 	databaseName = database == null ? null : database.getName();
+	if(kind == Kind.ARITY_ELEMENT && taken.type() == Type.ARITY) { firstIdentity(taken); return; }
 	reload();
+}
+
+/** An arity chosen for the arity element: its first identity is shown, or a note when it holds none. */
+void firstIdentity(WorkspaceElement chosen) {
+	ACSESS_GUI_Service.DatabaseService database = database();
+	if(database == null) { reload(); return; }
+	int at = chosen.arity();
+	app.request("read the first identity of arity " + at, () -> {
+		long[] all = database.getIdentities(at);
+		return all.length == 0 ? null : Arrays.stream(all).min().getAsLong();
+	}, found -> {
+		if(kind != Kind.ARITY_ELEMENT || !chosen.equals(element)) { return; }
+		if(found != null) { element = WorkspaceElement.identity(at, found); }
+		reload();
+	});
 }
 
 /** The state the workspace gives this panel when it claims a kind, or swaps with the panel that held it. */
 public void assume(Kind assumed, WorkspaceElement held) {
 	kind = assumed;
-	element = held != null && assumed != null && held.type() == assumed.takes ? held : null;
+	element = held != null && assumed != null && assumed.takes(held.type()) ? held : null;
 	page = 0;
-	selecting = true;
-	selection.setSelectedItem(assumed == null ? NO_KIND : assumed);
-	selecting = false;
+	heading.accept(assumed == null ? "Content" : titled(assumed.label), assumed == null ? null : assumed.icon(18));
 	summaryTools.setVisible(kind == Kind.ARITY_SUMMARY);
 	elementTools.setVisible(kind == Kind.ARITY_ELEMENT);
 	showFocus(app.wsModeller.getFocused());
@@ -249,7 +332,7 @@ public void onSelectedDatabaseChange(ACSESS_GUI_Service.DatabaseService database
 
 void showFocus(WorkspaceElement focused) {
 	if(focused == null) { focus.setText("focused: nothing"); return; }
-	focus.setText("focused: " + focused + (kind != null && focused.type() == kind.takes ? " (click it again to show it here)" : ""));
+	focus.setText("focused: " + focused + (kind != null && kind.takes(focused.type()) ? " (click it again to show it here)" : ""));
 }
 
 void turn(int direction) {
@@ -259,10 +342,34 @@ void turn(int direction) {
 	reload();
 }
 
-/** The identity typed in the arity element's fields. */
+/** The identity typed in the arity element's field, of the arity chosen. */
 void showTyped() {
-	try { take(WorkspaceElement.identity(Integer.parseInt(typedArity.getText().trim()), Long.parseLong(typedIdentity.getText().trim()))); }
-	catch(NumberFormatException e) { JOptionPane.showMessageDialog(this, "The arity and the identity are numbers.", "Arity Element", JOptionPane.WARNING_MESSAGE); }
+	if(element == null) {
+		JOptionPane.showMessageDialog(this, "Choose an arity first: click a focused arity twice, or drop one here.", "Arity Element", JOptionPane.WARNING_MESSAGE);
+		return;
+	}
+	try { take(WorkspaceElement.identity(element.arity(), Long.parseLong(typedIdentity.getText().trim()))); }
+	catch(NumberFormatException e) { JOptionPane.showMessageDialog(this, "The identity is a number.", "Arity Element", JOptionPane.WARNING_MESSAGE); }
+}
+
+/** Shows the previous (-1) or next (1) identity the shown one's arity holds; nothing at either end. */
+void step(int direction) {
+	ACSESS_GUI_Service.DatabaseService database = database();
+	if(database == null || element == null || element.type() != Type.ARITY_IDENTITY) { return; }
+	int at = element.arity();
+	long from = element.identity();
+	app.request("step from identity " + from + " of arity " + at, () -> neighbor(database.getIdentities(at), from, direction), found -> {
+		if(found != null) { take(WorkspaceElement.identity(at, found)); }
+	});
+}
+
+/** The identity nearest to {@code from} on the side of {@code direction}, null when there is none; the identities are not assumed sorted. */
+static Long neighbor(long[] identities, long from, int direction) {
+	Long best = null;
+	for(long each : identities) {
+		if(direction > 0 ? each > from && (best == null || each < best) : each < from && (best == null || each > best)) { best = each; }
+	}
+	return best;
 }
 
 void captureIdentity() {
@@ -298,13 +405,10 @@ void reload() {
 	if(kind == Kind.PROCEDURE) { show(Shown.note("A procedure waits for its requests: acsess has none of a procedure, and components lists none.")); return; }
 	if(database == null) { show(Shown.note("No database is shown.")); return; }
 	if(element == null && kind.takes != null) {
-		show(Shown.note("Click a focused " + kind.takes + " twice, or drop one here" + (kind == Kind.ARITY_ELEMENT ? ", or type its number above." : ".")));
+		show(Shown.note(kind == Kind.ARITY_ELEMENT ? "Click a focused arity twice, or drop one here; then step or type its identity above." : "Click a focused " + kind.takes + " twice, or drop one here."));
 		return;
 	}
-	if(kind == Kind.ARITY_ELEMENT) {
-		typedArity.setText(String.valueOf(element.arity()));
-		typedIdentity.setText(String.valueOf(element.identity()));
-	}
+	if(kind == Kind.ARITY_ELEMENT && element.type() == Type.ARITY_IDENTITY) { typedIdentity.setText(String.valueOf(element.identity())); }
 	Kind shownKind = kind;
 	WorkspaceElement shownElement = element;
 	int wanted = page;
@@ -313,24 +417,34 @@ void reload() {
 	});
 }
 
+/** A title, its lines broken at the newlines. */
+static String html(String text) { return "<html>" + WelcomePage.escaped(text).replace("\n", "<br>") + "</html>"; }
+
 void show(Object shown) {
+	updated.run();
 	switch(shown) {
 		case Shown lines -> {
+			boolean indexFirst = kind == Kind.ARITY_SUMMARY || kind == Kind.ARITY_ELEMENT;
+			boolean sameColumns = Arrays.equals(model.shown.columns, lines.columns) && indexFirst == model.indexFirst && (!model.transposed || model.shown.cells.length == lines.cells.length);
 			model.shown = lines;
-			model.fireTableStructureChanged();
-			title.setText("<html>" + WelcomePage.escaped(lines.title) + "</html>");
+			model.indexFirst = indexFirst;
+			if(sameColumns) { model.fireTableDataChanged(); } else {
+				model.fireTableStructureChanged();
+				Utilities.fitColumns(table, indexFirst && !model.transposed);
+			}
+			title.setText(html(lines.title));
 			pages = lines.pages;
 			pager.setVisible(kind == Kind.ARITY_ROW && element != null);
 			pageLabel.setText("page " + (page + 1) + " of " + pages);
 			cards.show(body, LINES);
 		}
 		case Plane drawn -> {
-			title.setText("<html>" + WelcomePage.escaped(drawn.title) + "</html>");
+			title.setText(html(drawn.title));
 			plane.show(drawn.nodes, drawn.edges, drawn.note);
 			cards.show(body, PLANE);
 		}
 		case Code source -> {
-			title.setText("<html>" + WelcomePage.escaped(source.title) + "</html>");
+			title.setText(html(source.title));
 			code.setText(source.source);
 			code.setCaretPosition(0);
 			cards.show(body, CODE);
@@ -344,7 +458,6 @@ static Object read(ACSESS_GUI_Service.DatabaseService database, Kind kind, Works
 	if(kind == Kind.CLASS) { return new Code(element.className(), database.decompile(element.className())); }
 	Components components = database.getComponents();
 	switch(kind) {
-		case STRUCTURES -> { return structures(components); }
 		case STRUCTURE_SUMMARY, STRUCTURE_CONTENT -> {
 			Structure structure = components.structures().stream().filter(s -> s.slot() == element.structure()).findFirst().orElse(null);
 			if(structure == null || structure.isRemoved()) { return Shown.note(element + " is not in the database."); }
@@ -364,8 +477,8 @@ static Object read(ACSESS_GUI_Service.DatabaseService database, Kind kind, Works
 				cells[i] = new Object[] { row.slot(), Utilities.described(row.description()), Utilities.simple(row.kind()), row.type().name().toLowerCase() };
 				elements[i] = WorkspaceElement.row(arity.slot(), row.slot());
 			}
-			String count = arity.identities() + (arity.identities() == 1 ? " identity" : " identities");
-			return Shown.lines(element + ": " + Utilities.described(arity.description()) + ", " + count, new String[] { "row", "description", "class", "type" }, cells, elements);
+			String summary = element + "\nclass: " + Utilities.simple(arity.className()) + "\ndescription: " + Utilities.described(arity.description()) + "\nidentities: " + arity.identities() + "\nrows: " + live.size();
+			return Shown.lines(summary, new String[] { "row", "description", "class", "type" }, cells, elements);
 		}
 		case ARITY_ROW -> {
 			Row row = live.stream().filter(r -> r.slot() == element.row()).findFirst().orElse(null);
@@ -379,14 +492,15 @@ static Object read(ACSESS_GUI_Service.DatabaseService database, Kind kind, Works
 			WorkspaceElement[] elements = new WorkspaceElement[identities.length];
 			Edit[] edits = new Edit[identities.length];
 			for(int i = 0; i < identities.length; i++) {
-				cells[i] = new Object[] { identities[i], values[i][0] == null ? "(object)" : values[i][0] };
+				cells[i] = new Object[] { values[i][0] == null ? "(object)" : values[i][0] };
 				elements[i] = WorkspaceElement.identity(arity.slot(), identities[i]);
 				edits[i] = values[i][0] == null ? null : new Edit(row, identities[i]);
 			}
 			String head = element + ": " + Utilities.described(row.description()) + " (" + row.type().name().toLowerCase() + "), " + all.length + (all.length == 1 ? " identity" : " identities");
-			return new Shown(head, new String[] { "identity", "value" }, cells, elements, 1, edits, pageCount);
+			return new Shown(head, new String[] { "value" }, cells, elements, 0, edits, pageCount);
 		}
 		case ARITY_ELEMENT -> {
+			if(element.type() == Type.ARITY) { return Shown.note(element + " holds no identities."); }
 			if(Arrays.stream(database.getIdentities(arity.slot())).noneMatch(i -> i == element.identity())) { return Shown.note(element + " is not in the database."); }
 			String[][] values = database.getValues(arity.slot(), live, new long[] { element.identity() });
 			Object[][] cells = new Object[live.size()][];
@@ -394,37 +508,14 @@ static Object read(ACSESS_GUI_Service.DatabaseService database, Kind kind, Works
 			Edit[] edits = new Edit[live.size()];
 			for(int i = 0; i < live.size(); i++) {
 				Row row = live.get(i);
-				cells[i] = new Object[] { row.slot(), Utilities.described(row.description()), values[0][i] == null ? "(object)" : values[0][i] };
+				cells[i] = new Object[] { row.slot(), Utilities.described(row.description()), Utilities.simple(row.kind()), row.type().name().toLowerCase(), values[0][i] == null ? "(object)" : values[0][i] };
 				elements[i] = WorkspaceElement.row(arity.slot(), row.slot());
 				edits[i] = values[0][i] == null ? null : new Edit(row, element.identity());
 			}
-			return new Shown(element.toString(), new String[] { "row", "description", "value" }, cells, elements, 2, edits, 1);
+			return new Shown(element.toString(), new String[] { "row", "description", "class", "type", "value" }, cells, elements, 4, edits, 1);
 		}
 		default -> { return Shown.note(element + " has nothing to show."); }
 	}
-}
-
-/** Every structure and the arities it spans: the arities in a row, the structures in a row under them, removed slots left out. */
-static Plane structures(Components components) {
-	ArrayList<StructurePlane.Node> nodes = new ArrayList<>();
-	ArrayList<StructurePlane.Edge> edges = new ArrayList<>();
-	HashMap<Integer, Integer> arityNodes = new HashMap<>();
-	for(Arity arity : components.arities()) {
-		if(arity.isRemoved()) { continue; }
-		arityNodes.put(arity.slot(), nodes.size());
-		nodes.add(new StructurePlane.Node(WorkspaceElement.arity(arity.slot()), "arity " + arity.slot() + ": " + Utilities.described(arity.description()), (arityNodes.size() - 1) * StructurePlane.SPACING, 0, false));
-	}
-	int placed = 0;
-	for(Structure structure : components.structures()) {
-		if(structure.isRemoved()) { continue; }
-		int at = nodes.size();
-		nodes.add(new StructurePlane.Node(WorkspaceElement.structure(structure.slot()), "structure " + structure.slot() + ": " + Utilities.described(structure.description()), placed++ * StructurePlane.SPACING, StructurePlane.ROWS, true));
-		for(int spanned : structure.arities()) {
-			Integer to = arityNodes.get(spanned);
-			if(to != null) { edges.add(new StructurePlane.Edge(at, to)); }
-		}
-	}
-	return new Plane("the structures", nodes, edges, arityNodes.size() + " arities, " + placed + " structures. Drag the plane to move it, the wheel to zoom.");
 }
 
 static Shown structureSummary(Components components, Structure structure) {

@@ -35,20 +35,31 @@ import java.util.TreeSet;
  * */
 public class ListerPanel extends WorkSpaceViewPanel {
 
-static final String NO_KIND = "(choose a list)";
+static final String NO_KIND = "(none)";
 
 /** The listers' selection, in its order. */
 public enum Kind {
-	ARITY_LIST("arity list"), STRUCTURE_LIST("structure list"), CLASS_LIST("class list"), PROCEDURE_LIST("procedure list");
+	ARITY_LIST("arity list", "database.svg"), STRUCTURE_LIST("structure list", "city.svg"), CLASS_LIST("class list", "blueprint.svg"), PROCEDURE_LIST("procedure list", "strategy.svg");
 
 	public final String label;
+	/** The icon in the resources' {@code icons/}. */
+	public final String icon;
 
-	Kind(String label) { this.label = label; }
+	Kind(String label, String icon) {
+		this.label = label;
+		this.icon = icon;
+	}
+
+	public Icon icon(int size) { return icon == null ? null : Utilities.loadSVGIcon("icons/" + icon, size, size, Utilities.ELEMENT_TEXT_PRIMARY); }
 
 	@Override public String toString() { return label; }
 }
 
-final JComboBox<Object> selection = new JComboBox<>();
+final JButton selection = Utilities.iconButton(Utilities.loadSVGIcon("icons/list.svg", 18, 18, Utilities.ELEMENT_TEXT_PRIMARY), "List type");
+final JButton transpose = Utilities.iconButton(Utilities.loadSVGIcon("icons/shuffle-simple.svg", 16, 16, Utilities.ELEMENT_TEXT_PRIMARY), "Transpose: the lines as columns");
+final JPopupMenu kinds = new JPopupMenu();
+/** Receives the header title, the chosen kind's name, and its icon. */
+public java.util.function.BiConsumer<String, Icon> heading = (name, icon) -> { };
 final JLabel title = new JLabel(" ");
 final LineModel model = new LineModel();
 final JTable table = new JTable(model);
@@ -59,30 +70,40 @@ record Listed(String title, String[] columns, Object[][] cells, WorkspaceElement
 	static Listed note(String title) { return new Listed(title, new String[0], new Object[0][0], new WorkspaceElement[0]); }
 }
 
+/** The lines as rows, or transposed: a column each, under their first cell's text, with the fields as rows. */
 class LineModel extends AbstractTableModel {
 	Listed listed = Listed.note(" ");
+	boolean transposed;
+	/** Whether the first column is the lines' number: it has no name above it and stays narrow. */
+	boolean indexFirst;
 
-	@Override public int getRowCount() { return listed.cells.length; }
+	@Override public int getRowCount() { return transposed ? listed.columns.length : listed.cells.length; }
 
-	@Override public int getColumnCount() { return listed.columns.length; }
+	@Override public int getColumnCount() { return transposed ? listed.cells.length + 1 : listed.columns.length; }
 
-	@Override public String getColumnName(int column) { return listed.columns[column]; }
+	@Override public String getColumnName(int column) { return !transposed ? (indexFirst && column == 0 ? "" : listed.columns[column]) : column == 0 ? "" : String.valueOf(listed.cells[column - 1][0]); }
 
-	@Override public Object getValueAt(int line, int column) { return listed.cells[line][column]; }
+	@Override public Object getValueAt(int row, int column) { return transposed ? (column == 0 ? listed.columns[row] : listed.cells[column - 1][row]) : listed.cells[row][column]; }
 }
 
 public ListerPanel(ApplicationController app) {
 	super(app);
-	selection.addItem(NO_KIND);
-	for(Kind each : Kind.values()) { selection.addItem(each); }
-	selection.addActionListener(e -> {
-		Object chosen = selection.getSelectedItem();
-		kind = chosen instanceof Kind wanted ? wanted : null;
-		reload();
+	JMenuItem none = new JMenuItem(NO_KIND);
+	none.addActionListener(e -> choose(null));
+	kinds.add(none);
+	for(Kind each : Kind.values()) {
+		JMenuItem item = new JMenuItem(each.label, each.icon(18));
+		item.addActionListener(e -> choose(each));
+		kinds.add(item);
+	}
+	selection.addActionListener(e -> kinds.show(selection, 0, selection.getHeight()));
+	transpose.addActionListener(e -> {
+		model.transposed = !model.transposed;
+		model.fireTableStructureChanged();
+		Utilities.fitColumns(table, model.indexFirst && !model.transposed);
 	});
 	JPanel top = new JPanel(new BorderLayout(0, 4));
 	top.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-	top.add(selection, BorderLayout.NORTH);
 	title.setForeground(Utilities.ELEMENT_TEXT_PRIMARY);
 	top.add(title, BorderLayout.CENTER);
 	add(top, BorderLayout.NORTH);
@@ -91,7 +112,8 @@ public ListerPanel(ApplicationController app) {
 	table.setDefaultEditor(Object.class, null);
 	add(new JScrollPane(table), BorderLayout.CENTER);
 	WorkspaceElement.Transfer.source(table, point -> {
-		int line = table.rowAtPoint(point);
+		int row = table.rowAtPoint(point), column = table.columnAtPoint(point);
+		int line = row < 0 || column < 0 ? -1 : model.transposed ? column - 1 : row;
 		return line < 0 ? null : model.listed.elements[line];
 	}, app.wsModeller::click);
 	setPreferredSize(new Dimension(480, 600));
@@ -99,7 +121,17 @@ public ListerPanel(ApplicationController app) {
 }
 
 /** Lists what the kind names, as a sidebar's or a check's choice. */
-public void choose(Kind chosen) { selection.setSelectedItem(chosen == null ? NO_KIND : chosen); }
+public void choose(Kind chosen) {
+	kind = chosen;
+	heading.accept(chosen == null ? "Lister" : ContentPanel.titled(chosen.label), chosen == null ? null : chosen.icon(18));
+	reload();
+}
+
+/** The button choosing the kind, which the panel's header holds. */
+public JButton getChooser() { return selection; }
+
+/** The button turning the lines into columns and back, which the panel's header holds. */
+public JButton getTranspose() { return transpose; }
 
 public Kind getKind() { return kind; }
 
@@ -115,8 +147,15 @@ void reload() {
 }
 
 void show(Listed listed) {
+	updated.run();
+	boolean indexFirst = listed.columns.length > 1;
+	boolean sameColumns = Arrays.equals(model.listed.columns, listed.columns) && indexFirst == model.indexFirst && (!model.transposed || model.listed.cells.length == listed.cells.length);
 	model.listed = listed;
-	model.fireTableStructureChanged();
+	model.indexFirst = indexFirst;
+	if(sameColumns) { model.fireTableDataChanged(); } else {
+		model.fireTableStructureChanged();
+		Utilities.fitColumns(table, indexFirst && !model.transposed);
+	}
 	title.setText("<html>" + WelcomePage.escaped(listed.title) + "</html>");
 }
 

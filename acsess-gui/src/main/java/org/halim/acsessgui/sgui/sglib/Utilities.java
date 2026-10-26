@@ -49,6 +49,62 @@ public static Icon loadSVGIcon(String path, int width, int height, Color color) 
 	return loaded;
 }
 
+/** A small drawn glyph for the panel headers' buttons: "left", "right", "up", "down" chevrons or "close". */
+public static Icon glyph(String shape) {
+	return new Icon() {
+		@Override public int getIconWidth() { return 12; }
+
+		@Override public int getIconHeight() { return 12; }
+
+		@Override
+		public void paintIcon(Component c, Graphics g, int x, int y) {
+			Graphics2D g2 = (Graphics2D) g.create();
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+			g2.setColor(c.isEnabled() ? ELEMENT_TEXT_PRIMARY : ELEMENT_TEXT_SECONDARY);
+			g2.translate(x, y);
+			java.awt.geom.Path2D.Float path = new java.awt.geom.Path2D.Float();
+			switch(shape) {
+				case "left" -> { path.moveTo(8, 2); path.lineTo(4, 6); path.lineTo(8, 10); }
+				case "right" -> { path.moveTo(4, 2); path.lineTo(8, 6); path.lineTo(4, 10); }
+				case "up" -> { path.moveTo(2, 8); path.lineTo(6, 4); path.lineTo(10, 8); }
+				case "down" -> { path.moveTo(2, 4); path.lineTo(6, 8); path.lineTo(10, 4); }
+				default -> { path.moveTo(2, 2); path.lineTo(10, 10); path.moveTo(10, 2); path.lineTo(2, 10); }
+			}
+			g2.draw(path);
+			g2.dispose();
+		}
+	};
+}
+
+/**
+ * Sizes each column of the table to its header and its first rows, so an unchanged structure keeps what
+ * the user dragged; the last column takes the rest of the width. A first column that is the lines'
+ * number is sized to its cells alone, and stays narrow.
+ * */
+public static void fitColumns(JTable table, boolean indexFirst) {
+	table.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
+	for(int column = 0; column < table.getColumnCount(); column++) {
+		javax.swing.table.TableColumn tableColumn = table.getColumnModel().getColumn(column);
+		Component header = table.getTableHeader().getDefaultRenderer().getTableCellRendererComponent(table, tableColumn.getHeaderValue(), false, false, -1, column);
+		int width = indexFirst && column == 0 ? 0 : header.getPreferredSize().width;
+		for(int line = 0; line < Math.min(table.getRowCount(), 200); line++) {
+			Component cell = table.prepareRenderer(table.getCellRenderer(line, column), line, column);
+			width = Math.max(width, cell.getPreferredSize().width);
+		}
+		tableColumn.setPreferredWidth(indexFirst && column == 0 ? Math.max(30, Math.min(80, width + 12)) : Math.max(50, Math.min(500, width + 16)));
+	}
+}
+
+/** A header button: an icon alone, flat until hovered, with its tooltip. */
+public static JButton iconButton(Icon icon, String tooltip) {
+	JButton button = new JButton(icon);
+	button.setToolTipText(tooltip);
+	button.putClientProperty("JButton.buttonType", "toolBarButton");
+	initButton(button);
+	return button;
+}
+
 /** A sidebar button: its text when expanded, its icon alone when collapsed. */
 public static JButton sidebarButton(String name, String expandedIconName, String collapsedIconName) {
 	JButton btn = new JButton(name);

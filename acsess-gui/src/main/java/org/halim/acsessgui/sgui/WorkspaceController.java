@@ -53,7 +53,7 @@ public WorkspaceElement getFocused() { return focused; }
 public void click(WorkspaceElement element) {
 	if(element.equals(focused)) {
 		for(ContentPanel.Kind kind : ContentPanel.Kind.values()) {
-			if(kind.takes != element.type()) { continue; }
+			if(!kind.takes(element.type())) { continue; }
 			ContentPanel listening = listenerOf(kind);
 			if(listening != null) { listening.take(element); }
 		}

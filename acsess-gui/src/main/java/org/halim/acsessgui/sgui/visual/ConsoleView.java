@@ -76,6 +76,7 @@ void print(List<ACSESS_GUI_Service.Answer> answers) {
 		String body = answer.done() ? answer.text() : (answer.text().equals("not run") ? "not run" : "refused: " + answer.text());
 		text.append("  ").append(body.replace("\n", "\n  "));
 	}
+	updated.run();
 	output.setText(text.toString());
 	output.setCaretPosition(output.getDocument().getLength());
 	app.view.leftSidebar.loadedDatabasesSection.refresh();
