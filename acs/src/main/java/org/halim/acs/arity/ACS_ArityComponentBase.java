@@ -2,6 +2,7 @@ package org.halim.acs.arity;
 
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
+import org.halim.acs.ACS_Requestable;
 import org.halim.acs.persistence.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
 import org.halim.acs.arity.sets.IdentitiesSet;
@@ -59,6 +60,7 @@ void removeIf(int identity, String comment);
 void registerIf(int identity, String comment);
 
 /** How many columns, so a slot is checkable and a walk over all of them is writable. */
+@ACS_Requestable(0)
 int catalogCount();
 
 double getEstimatedBytesPerIdentity(int catalog);
@@ -74,6 +76,7 @@ int getPreferredType(int catalog);
  * end up half-grown after a partial loop the caller wrote itself. Nothing in this pair touches a
  * value, so nothing in it boxes one.
  * */
+@ACS_Requestable(11)
 boolean ensureCapacity(long identity);
 
 /** Lowers the ceiling to {@code capacity} in every column and gives back what sat above it. */
@@ -88,6 +91,10 @@ void truncate(long capacity);
  * */
 boolean saveTo(DataOutputStream dos) throws IOException;
 
+/** The occupied identities as an int array, for request callers. */
+@ACS_Requestable(10)
+default int[] occupiedIdentities() { return occupied().toList().toIntArray(); }
+
 /** Can use integers carefreely. */
 public static final int PREFERRED_INTEGER = -1;
 /** Cannot use integers carefreely. */
@@ -99,11 +106,16 @@ public static final int PREFERRED_OBJECT = 2;
 /** A string, which is an Object too: a string catalog answers {@link #getObjectFor} with the same value. */
 public static final int PREFERRED_STRING = 3;
 
+@ACS_Requestable(1)
 default int getIntFor(int catalog, long identity) { throw cannotAnswer(catalog, "int"); }
+@ACS_Requestable(2)
 default long getLongFor(int catalog, long identity) { throw cannotAnswer(catalog, "long"); }
+@ACS_Requestable(3)
 default double getDoubleFor(int catalog, long identity) { throw cannotAnswer(catalog, "double"); }
+@ACS_Requestable(4)
 default boolean getBooleanFor(int catalog, long identity) { throw cannotAnswer(catalog, "boolean"); }
 default Object getObjectFor(int catalog, long identity) { throw cannotAnswer(catalog, "Object"); }
+@ACS_Requestable(5)
 default String getStringFor(int catalog, long identity) { throw cannotAnswer(catalog, "String"); }
 
 /**
@@ -118,9 +130,13 @@ default String getStringFor(int catalog, long identity) { throw cannotAnswer(cat
  * dictionary codes keeps its code's {@code old ^ new} instead. A table that takes no writes keeps these
  * defaults, which refuse.
  * */
+@ACS_Requestable(6)
 default void setLongFor(int catalog, long identity, long value, String comment) { throw cannotAnswer(catalog, "a written long"); }
+@ACS_Requestable(7)
 default void setDoubleFor(int catalog, long identity, double value, String comment) { throw cannotAnswer(catalog, "a written double"); }
+@ACS_Requestable(8)
 default void setBooleanFor(int catalog, long identity, boolean value, String comment) { throw cannotAnswer(catalog, "a written boolean"); }
+@ACS_Requestable(9)
 default void setStringFor(int catalog, long identity, String value, String comment) { throw cannotAnswer(catalog, "a written String"); }
 
 /**

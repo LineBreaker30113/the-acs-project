@@ -3,14 +3,12 @@ package org.halim.acse.structure.ternary.of_by_to;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -31,8 +29,6 @@ public class ArrayListsOfByToComponent extends OfByToBase {
 
 /** The pair (by, of, to) added last to the by's list; the negative triple removes its last occurrence. */
 static final byte PAIR = 1;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = ACS_Actor.requestNames(ArrayListsOfByToComponent.class);
 static final int EVERY_BIT = NO_REPEATS | NO_PARALLEL_VIAS | AT_MOST_ONE_PRIMARY_PER_RELATION | AT_MOST_ONE_COMPLEMENT_PER_RELATION | AT_MOST_ONE_RELATION_PER_PRIMARY | AT_MOST_ONE_TO_PER_FROM | AT_MOST_ONE_RELATION_PER_COMPLEMENT | AT_MOST_ONE_FROM_PER_TO | EVERY_VIA_MATCHES;
 
 final ACS_Core core;
@@ -116,6 +112,11 @@ public void writeTosOf(int of, DataOutputStream dos) throws IOException { writeI
 
 @Override
 public void writeFromsOf(int to, DataOutputStream dos) throws IOException { writeInts(dos, partners(to, 1)); }
+
+static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
+	dos.writeInt(ints.length);
+	for(int identity : ints) { dos.writeInt(identity); }
+}
 
 
 /**
@@ -483,11 +484,6 @@ static int[] without(int[] list, int of, int to) {
 	return kept.toIntArray();
 }
 
-static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
-	dos.writeInt(ints.length);
-	for(int identity : ints) { dos.writeInt(identity); }
-}
-
 
 /** {@link #addPair}, as primary-relation-complement names it: the primary is the of, the relation the by, the complement the to. */
 @Override
@@ -538,80 +534,8 @@ public int[] tosOf(int of) { return partners(of, 0); }
 public int[] fromsOf(int to) { return partners(to, 1); }
 
 
-/**
- * The requests, by the codes {@link OfByToBase} marks: each reads its inputs, calls the public method,
- * which keeps its checks, and writes the result. A read is recorded as a query: its method's name and
- * inputs, then its answer, or its refusal; a list is answered by its length.
- * */
+
 @Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> returns.writeBoolean(relateToTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(unrelateFromTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2 -> {
-				int primary = parameters.readInt(), relation = parameters.readInt(), complement = parameters.readInt();
-				query = REQUESTS[code] + "(" + primary + ", " + relation + ", " + complement + ")";
-				boolean value = isRelatedToTernary(primary, relation, complement);
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 3 -> returns.writeBoolean(take(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 4 -> returns.writeBoolean(untake(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 5 -> returns.writeBoolean(give(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 6 -> returns.writeBoolean(ungive(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 7 -> returns.writeBoolean(setTaken(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 8 -> returns.writeBoolean(setGiven(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 9 -> returns.writeBoolean(moveTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 10 -> returns.writeBoolean(mergeTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 15 -> returns.writeInt(ensureVia(readInts(parameters), ACS_Actor.readString(parameters)));
-			case 16 -> returns.writeBoolean(addPair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 17 -> returns.writeBoolean(removePair(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 18 -> returns.writeBoolean(setPairs(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 11, 12, 13, 14, 19, 20, 21 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int[] value = switch(code) {
-					case 11 -> takenOf(identity);
-					case 12 -> givenOf(identity);
-					case 13 -> takersOf(identity);
-					case 14 -> giversOf(identity);
-					case 19 -> pairsOf(identity);
-					case 20 -> tosOf(identity);
-					default -> fromsOf(identity);
-				};
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
-
-
-/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
-static int[] readInts(DataInputStream dis) throws IOException {
-	int length = dis.readInt();
-	if(length < 0) { throw new IOException("int[] length " + length); }
-	IntArrayList ints = new IntArrayList();
-	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
-	return ints.toIntArray();
-}
-
-void recordQuery(String request, String response) {
-	journal.recordQueryRequest(request);
-	journal.recordQueryResponse(response);
-}
-
-/** What a refused request writes back: the error's message, or its class when it has none. */
-static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
+public ACS_Journal getJournal() { return journal; }
 
 }

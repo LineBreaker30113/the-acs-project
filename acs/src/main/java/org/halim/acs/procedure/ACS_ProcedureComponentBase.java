@@ -2,6 +2,7 @@ package org.halim.acs.procedure;
 
 
 import org.halim.acs.ACS_Actor;
+import org.halim.acs.ACS_Requestable;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -34,6 +35,7 @@ public interface ACS_ProcedureComponentBase extends ACS_Actor {
 boolean saveTo(DataOutputStream dos) throws IOException;
 
 /** Runs once on the data as it stands. Records its steps, so it undoes with the request that called it. */
+@ACS_Requestable(0)
 void execute(String comment);
 
 /** The reads any run may send, from the hyperparameters alone. */

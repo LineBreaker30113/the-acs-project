@@ -49,7 +49,7 @@ public class ACSED_Request {
 
 public static final int DONE = 0, REFUSED = 1, NOT_RUN = 2;
 /** What a frame addresses: acsed, as a subject or as a database's type; and the actors' types. */
-public static final int ACSED = -1, CORE = 0, JOURNAL = -128, ARITY = 1, STRUCTURE = 2;
+public static final int ACSED = -1, DESCRIPTION = 0, CORE = 1, JOURNAL = 2, ARITY = 3, ROW = 4, STRUCTURE = 5, PROCEDURE = 7;
 public static final String LOG = "acsed.log", LOCK = "acsed.lock", LANGUAGE = "acsed-language.txt", DATABASES = "acsed.databases",
 	DATABASE_LANGUAGE = "acse-language.txt";
 
@@ -196,7 +196,11 @@ public static byte[] readBytes(DataInputStream in) throws IOException {
 public record Connection(boolean continueOnRefusal, List<Frame> frames) {}
 
 /** One request as it travels; {@code type}, {@code index} and {@code place} are 0 where the subject or the type has none, {@code timeout} where the request gives none. */
-public record Frame(int subject, int type, int index, int place, String key, long timeout, byte[] parameters) {}
+public record Frame(int subject, int type, int index, int place, String key, long timeout, byte[] parameters) {
+	public Frame(int subject, int type, int index, int place, String key, byte[] parameters) {
+		this(subject, type, index, place, key, 0L, parameters);
+	}
+}
 
 /** A status and the returns: the result as its type is written, or the reason of a refusal as a string. */
 public record Answer(int status, byte[] returns) {}

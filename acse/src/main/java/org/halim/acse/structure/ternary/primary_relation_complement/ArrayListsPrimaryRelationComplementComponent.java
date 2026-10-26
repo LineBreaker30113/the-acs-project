@@ -2,7 +2,6 @@ package org.halim.acse.structure.ternary.primary_relation_complement;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.structure.ACS_TernaryStructure;
@@ -10,7 +9,6 @@ import org.halim.acs.structure.ACS_TernaryStructure;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -38,8 +36,6 @@ public class ArrayListsPrimaryRelationComplementComponent implements ACS_Ternary
 static final byte TAKE = 1;
 /** The complement given by the relation, (relation, complement); the negative pair drops it. */
 static final byte GIVE = 2;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = ACS_Actor.requestNames(ArrayListsPrimaryRelationComplementComponent.class);
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -339,80 +335,7 @@ public static ArrayListsPrimaryRelationComplementComponent loadFrom(ACS_Core cor
 }
 
 
-/**
- * The requests, by the codes {@link ACS_TernaryStructure} marks: each reads its inputs, calls the public method,
- * which keeps its checks, and writes the result. A read is recorded as a query: its method's name and
- * inputs, then its answer, or its refusal; a list is answered by its length.
- * */
-@Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> returns.writeBoolean(relateToTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(unrelateFromTernary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2 -> {
-				int primary = parameters.readInt(), relation = parameters.readInt(), complement = parameters.readInt();
-				query = REQUESTS[code] + "(" + primary + ", " + relation + ", " + complement + ")";
-				boolean value = isRelatedToTernary(primary, relation, complement);
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 3 -> returns.writeBoolean(take(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 4 -> returns.writeBoolean(untake(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 5 -> returns.writeBoolean(give(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 6 -> returns.writeBoolean(ungive(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 7 -> returns.writeBoolean(setTaken(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 8 -> returns.writeBoolean(setGiven(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 9 -> returns.writeBoolean(moveTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 10 -> returns.writeBoolean(mergeTernary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 11, 12, 13, 14 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int[] value = switch(code) {
-					case 11 -> takenOf(identity);
-					case 12 -> givenOf(identity);
-					case 13 -> takersOf(identity);
-					default -> giversOf(identity);
-				};
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
 
-
-void recordQuery(String request, String response) {
-	journal.recordQueryRequest(request);
-	journal.recordQueryResponse(response);
-}
-
-/** What a refused request writes back: the error's message, or its class when it has none. */
-static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
-
-/** An int[] on the wire: its length, then its elements. */
-static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
-	dos.writeInt(ints.length);
-	for(int value : ints) { dos.writeInt(value); }
-}
-
-/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
-static int[] readInts(DataInputStream dis) throws IOException {
-	int length = dis.readInt();
-	if(length < 0) { throw new IOException("int[] length " + length); }
-	IntArrayList ints = new IntArrayList();
-	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
-	return ints.toIntArray();
-}
 
 
 boolean takes(int relation, int primary) {
@@ -458,5 +381,7 @@ static IntArrayList grownAt(ArrayList<IntArrayList> lists, int at) {
 	return held;
 }
 
+@Override
+public ACS_Journal getJournal() { return journal; }
 
 }

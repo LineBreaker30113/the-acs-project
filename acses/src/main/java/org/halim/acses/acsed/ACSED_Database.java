@@ -121,7 +121,7 @@ Answer run(DataInputStream parameters) throws IOException {
  * */
 @ACS_Requestable(0)
 public String components(String comment) {
-	ACS_DescriptionManager descriptions = core instanceof ACS_DescriptionManager manager ? manager : null;
+	ACS_DescriptionManager descriptions = core.getDescriptionManager();
 	StringBuilder lines = new StringBuilder();
 	for(int slot = 0; slot < core.getArityCount(); slot++) {
 		ACS_ArityComponentBase arity = core.getArity(slot);

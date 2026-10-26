@@ -1,143 +1,138 @@
 package org.halim.acse.structure.binary.node_edge;
 
-import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Requestable;
-import org.halim.acs.structure.ACS_BinaryStructure_U;
-import org.halim.acse.structure.BinaryRestrictions;
-import org.halim.acse.structure.UnaryRestrictions;
+import org.halim.acs.structure.ACS_BinaryStructure;
+import org.halim.acs.structure.ACS_UnaryStructure;
+import org.halim.acs.structure.UnaryRestrictions;
 
-import static org.halim.acse.structure.UnaryRestrictions.*;
-import static org.halim.acse.structure.BinaryRestrictions.*;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
-/**
- * The node-cluster whose every cluster, an edge, joins exactly two nodes, the same node twice for a
- * loop: the arity at index 0 holds the nodes and the one at index 1 the edges, so a node and an edge each
- * carry data of their own, and an edge is an identity like any other. With {@link #DIRECTED}, the first goes
- * to the second. The connector's requests take a node and an edge, so one that would leave an edge with
- * other than two nodes is refused. {@link #addParent} captures an edge only when none joins the two, and
- * {@link #removeParent} removes every edge from the parent, as {@link #breakEdges} does.
- * <p>
- * What kind of graph the nodes make is the node-cluster's graph rules, so 0 is any symmetric graph,
- * with loops and parallel edges. How the graph is stored is the implementation's, and says nothing about
- * which restrictions it takes. {@link #NO_IMPLIED_LINKS} refuses rather than drops: an edge another path
- * implies is not added, and one that would imply an edge already there is refused, since dropping an edge
- * would forget its data.
- * <p>
- * An edge's two nodes are its first and its second: where it starts and where it ends on a directed
- * graph, the smaller and the larger on a directionless one. Edges are made and removed with their
- * connections. Connecting two nodes captures the edge on the edge arity through the core, as a request
- * nested in the connection's, so undoing the connection removes the edge with it; the edge arity is so
- * caused, but not strictly. An edge leaving its arity - through the core, or by its connection breaking -
- * is forgotten here, and a node leaving its arity removes every edge on it through
- * {@link ACS_Core#delegateRemoval}, which is the recursive step. An edge identity captured any other way is
- * no connection. The two arities must be different slots: an edge that was also a node would be forgotten
- * as both.
- * <p>
- * No contract names this kind, since exactly two nodes a cluster is no enforced structure; its requests are
- * marked here, after the ones of {@link ACS_BinaryStructure_U}, for every node-edge storage to share.
- * */
-public abstract class NodeEdgeBase implements ACS_BinaryStructure_U {
+/** Base class for node-edge binary connector structures with shared unary graph view. */
+public abstract class NodeEdgeBase implements ACS_BinaryStructure {
 
-public int getNodeArity() { return getArityIdentity(0); }
-public int getEdgeArity() { return getArityIdentity(1); }
+	public int getNodeArity() { return getArityIdentity(0); }
+	public int getEdgeArity() { return getArityIdentity(1); }
 
-/** Whether its edges go from their first node to their second, read from its restrictions. */
-@Override
-public boolean isDirected() { return (getRestrictions() & UnaryRestrictions.DIRECTED) != 0; }
+	public boolean isDirected() { return (getRestrictions() & UnaryRestrictions.DIRECTED) != 0; }
 
-/** The restrictions it was built with, an OR of the bits of {@link UnaryRestrictions} and {@link BinaryRestrictions}. */
-public abstract int getRestrictions();
+	public abstract int getRestrictions();
 
+	public abstract boolean setPredecessor(int element, int predecessor, String comment);
+	public abstract boolean setPredecessors(int element, int[] predecessors, String comment);
+	public abstract boolean setSuccessors(int element, int[] successors, String comment);
+	public abstract int predecessorCount(int element);
+	public abstract void copyPredecessorsInto(int element, int[] dest, int offset);
+	public abstract int successorCount(int element);
+	public abstract void copySuccessorsInto(int element, int[] dest, int offset);
 
-/**
- * As {@link ACS_UnaryStructure#setParent}; with {@link #AT_MOST_ONE_INCOMING}, the edge from its one parent
- * is kept and re-pointed, so its identity and its data stay and only its first node changes.
- * */
-@Override
-public abstract boolean setParent(int element, int parent, String comment);
+	@ACS_Requestable(18)
+	public abstract int ensureEdge(int node, int otherNode, String comment);
 
+	@ACS_Requestable(19)
+	public abstract boolean breakEdges(int node, int otherNode, String comment);
 
-/**
- * An edge from {@code node} to {@code otherNode}, or between them on a directionless graph, given back: a
- * new one captured on the edge arity, or, with {@link #NO_PARALLEL_LINKS}, the one already there. Refuses
- * a node its arity does not hold and an edge a restriction forbids.
- * */
-@ACS_Requestable(41)
-public abstract int ensureEdge(int node, int otherNode, String comment);
+	@ACS_Requestable(20)
+	public abstract int edgeOf(int node, int otherNode);
 
-/** Removes every edge from {@code node} to {@code otherNode}, or between them on a directionless graph, through the core. False when there was none. */
-@ACS_Requestable(42)
-public abstract boolean breakEdges(int node, int otherNode, String comment);
+	public boolean hasEdge(int node, int otherNode) { return edgeOf(node, otherNode) >= 0; }
 
-/** An edge from {@code node} to {@code otherNode}, or between them on a directionless graph, or -1 for none; with parallel edges, the lowest. */
-@ACS_Requestable(43)
-public abstract int edgeOf(int node, int otherNode);
+	@ACS_Requestable(21)
+	public abstract int firstNodeOf(int edge);
 
-public boolean hasEdge(int node, int otherNode) { return edgeOf(node, otherNode) >= 0; }
+	@ACS_Requestable(22)
+	public abstract int secondNodeOf(int edge);
 
-/** Where the edge starts, or its smaller node on a directionless graph; -1 when the edge is no connection here. */
-@ACS_Requestable(44)
-public abstract int firstNodeOf(int edge);
+	public abstract int edgeCount(int node);
 
-/** Where the edge ends, or its larger node on a directionless graph; -1 when the edge is no connection here. */
-@ACS_Requestable(45)
-public abstract int secondNodeOf(int edge);
+	public abstract void copyEdgesInto(int node, int[] dest, int offset);
 
-/** How many edges the node is on, either way round; a loop counts once. */
-public abstract int edgeCount(int node);
+	@ACS_Requestable(23)
+	public int[] edgesOf(int node) {
+		int[] edges = new int[edgeCount(node)];
+		copyEdgesInto(node, edges, 0);
+		return edges;
+	}
 
-/** The node's edges, {@link #edgeCount} of them, ascending. */
-public abstract void copyEdgesInto(int node, int[] dest, int offset);
+	public int outEdgeCount(int node) {
+		if(!isDirected()) { return edgeCount(node); }
+		int count = 0;
+		for(int edge : edgesOf(node)) { if(firstNodeOf(edge) == node) { count++; } }
+		return count;
+	}
 
-/** The node's edges, as {@link #copyEdgesInto} gives them. */
-@ACS_Requestable(46)
-public int[] edgesOf(int node) {
-	int[] edges = new int[edgeCount(node)];
-	copyEdgesInto(node, edges, 0);
-	return edges;
-}
+	public void copyOutEdgesInto(int node, int[] dest, int offset) {
+		for(int edge : edgesOf(node)) { if(!isDirected() || firstNodeOf(edge) == node) { dest[offset++] = edge; } }
+	}
 
-/** The edges starting at the node; on a directionless graph, all of its edges. */
-public int outEdgeCount(int node) {
-	if(!isDirected()) { return edgeCount(node); }
-	int count = 0;
-	for(int edge : edgesOf(node)) { if(firstNodeOf(edge) == node) { count++; } }
-	return count;
-}
+	@ACS_Requestable(24)
+	public int[] outEdgesOf(int node) {
+		int[] edges = new int[outEdgeCount(node)];
+		copyOutEdgesInto(node, edges, 0);
+		return edges;
+	}
 
-/** The edges starting at the node, {@link #outEdgeCount} of them, ascending. */
-public void copyOutEdgesInto(int node, int[] dest, int offset) {
-	for(int edge : edgesOf(node)) { if(!isDirected() || firstNodeOf(edge) == node) { dest[offset++] = edge; } }
-}
+	public int inEdgeCount(int node) {
+		if(!isDirected()) { return edgeCount(node); }
+		int count = 0;
+		for(int edge : edgesOf(node)) { if(secondNodeOf(edge) == node) { count++; } }
+		return count;
+	}
 
-/** The edges starting at the node, as {@link #copyOutEdgesInto} gives them. */
-@ACS_Requestable(47)
-public int[] outEdgesOf(int node) {
-	int[] edges = new int[outEdgeCount(node)];
-	copyOutEdgesInto(node, edges, 0);
-	return edges;
-}
+	public void copyInEdgesInto(int node, int[] dest, int offset) {
+		for(int edge : edgesOf(node)) { if(!isDirected() || secondNodeOf(edge) == node) { dest[offset++] = edge; } }
+	}
 
-/** The edges ending at the node; on a directionless graph, all of its edges. */
-public int inEdgeCount(int node) {
-	if(!isDirected()) { return edgeCount(node); }
-	int count = 0;
-	for(int edge : edgesOf(node)) { if(secondNodeOf(edge) == node) { count++; } }
-	return count;
-}
+	@ACS_Requestable(25)
+	public int[] inEdgesOf(int node) {
+		int[] edges = new int[inEdgeCount(node)];
+		copyInEdgesInto(node, edges, 0);
+		return edges;
+	}
 
-/** The edges ending at the node, {@link #inEdgeCount} of them, ascending. */
-public void copyInEdgesInto(int node, int[] dest, int offset) {
-	for(int edge : edgesOf(node)) { if(!isDirected() || secondNodeOf(edge) == node) { dest[offset++] = edge; } }
-}
+	protected final ACS_UnaryStructure unaryView = new UnaryGraphView();
 
-/** The edges ending at the node, as {@link #copyInEdgesInto} gives them. */
-@ACS_Requestable(48)
-public int[] inEdgesOf(int node) {
-	int[] edges = new int[inEdgeCount(node)];
-	copyInEdgesInto(node, edges, 0);
-	return edges;
-}
+	public ACS_UnaryStructure asUnaryGraph() { return unaryView; }
 
+	public class UnaryGraphView implements ACS_UnaryStructure {
+		@Override public int getArityCount() { return 1; }
+		@Override public int getArityIdentity(int index) { return getNodeArity(); }
+		@Override public boolean isRelatedArity(int identity) { return identity == getNodeArity(); }
+		@Override public boolean isCaused(int index) { return NodeEdgeBase.this.isCaused(0); }
+		@Override public int getRestrictions() { return NodeEdgeBase.this.getRestrictions(); }
 
+		@Override public boolean relateToUnary(int predecessor, int successor, String comment) {
+			return NodeEdgeBase.this.ensureEdge(predecessor, successor, comment) >= 0;
+		}
+
+		@Override public boolean unrelateFromUnary(int predecessor, int successor, String comment) {
+			return NodeEdgeBase.this.breakEdges(predecessor, successor, comment);
+		}
+
+		@Override public boolean isRelatedToUnary(int predecessor, int successor) {
+			return NodeEdgeBase.this.hasEdge(predecessor, successor);
+		}
+
+		@Override public boolean setPredecessor(int element, int predecessor, String comment) {
+			return NodeEdgeBase.this.setPredecessor(element, predecessor, comment);
+		}
+
+		@Override public boolean setPredecessors(int element, int[] predecessors, String comment) {
+			return NodeEdgeBase.this.setPredecessors(element, predecessors, comment);
+		}
+
+		@Override public boolean setSuccessors(int element, int[] successors, String comment) {
+			return NodeEdgeBase.this.setSuccessors(element, successors, comment);
+		}
+
+		@Override public int predecessorCount(int element) { return NodeEdgeBase.this.predecessorCount(element); }
+		@Override public void copyPredecessorsInto(int element, int[] dest, int offset) { NodeEdgeBase.this.copyPredecessorsInto(element, dest, offset); }
+		@Override public int successorCount(int element) { return NodeEdgeBase.this.successorCount(element); }
+		@Override public void copySuccessorsInto(int element, int[] dest, int offset) { NodeEdgeBase.this.copySuccessorsInto(element, dest, offset); }
+
+		@Override public boolean saveTo(DataOutputStream dos) throws IOException { return NodeEdgeBase.this.saveTo(dos); }
+		@Override public boolean forget(int arity, int identity) { return NodeEdgeBase.this.forget(arity, identity); }
+		@Override public void doTraceableStep(byte stepPair, int[] params, int index) { NodeEdgeBase.this.doTraceableStep(stepPair, params, index); }
+		@Override public org.halim.acs.ACS_Journal getJournal() { return NodeEdgeBase.this.getJournal(); }
+	}
 }

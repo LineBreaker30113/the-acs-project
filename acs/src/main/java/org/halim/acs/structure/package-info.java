@@ -12,7 +12,6 @@
  *   <li>{@link org.halim.acs.structure.ACS_UnaryStructure} - the graph over one arity, with its reads,
  *       edits and analyses.</li>
  *   <li>{@link org.halim.acs.structure.ACS_BinaryStructure} - the connector, elements-clusters.</li>
- *   <li>{@link org.halim.acs.structure.ACS_BinaryStructure_U} - a binary structure enforcing a unary one
  *       on its primary arity: nodes joined by clusters.</li>
  *   <li>{@link org.halim.acs.structure.ACS_TernaryStructure} - primary-relation-complement: an identity of
  *       one arity relating a few identities of a second to a few of a third.</li>

@@ -1,6 +1,5 @@
 package org.halim.acse.arity;
 
-import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.persistence.ACS_PersistenceManager;
@@ -13,7 +12,6 @@ import org.halim.acs.arity.sets.IdentitiesSet;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Objects;
 
@@ -54,8 +52,6 @@ public final ACS_Journal journal;
 final int[] params = new int[5];
 
 static final byte IDENTITY = 1, CATALOG = 2, WRITE = 3, TEXT = 4;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = requestNames(ACSE_ComposableArityCatalog.class);
 
 public ACSE_ComposableArityCatalog(IdentitiesSet occupied, ACS_Journal journal) {
 	this.occupied = occupied;
@@ -291,105 +287,6 @@ void complete(int request) {
 	if(completed != request) { throw new IllegalStateException("began request " + request + ", completed " + completed); }
 }
 
-/**
- * The requests, by code in the order of the marks: each reads its inputs, calls the public method, which
- * keeps its checks, and writes the result. A read is recorded as a query: its method's name and inputs,
- * then its answer, or its refusal; the occupied identities are answered by their count, not listed.
- * */
-@Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> {
-				query = REQUESTS[code] + "()";
-				int count = catalogCount();
-				recordQuery(query, Integer.toString(count));
-				returns.writeInt(count);
-			}
-			case 1 -> {
-				int catalog = parameters.readInt();
-				long identity = parameters.readLong();
-				query = REQUESTS[code] + "(" + catalog + ", " + identity + ")";
-				int value = getIntFor(catalog, identity);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 2 -> {
-				int catalog = parameters.readInt();
-				long identity = parameters.readLong();
-				query = REQUESTS[code] + "(" + catalog + ", " + identity + ")";
-				long value = getLongFor(catalog, identity);
-				recordQuery(query, Long.toString(value));
-				returns.writeLong(value);
-			}
-			case 3 -> {
-				int catalog = parameters.readInt();
-				long identity = parameters.readLong();
-				query = REQUESTS[code] + "(" + catalog + ", " + identity + ")";
-				double value = getDoubleFor(catalog, identity);
-				recordQuery(query, Double.toString(value));
-				returns.writeDouble(value);
-			}
-			case 4 -> {
-				int catalog = parameters.readInt();
-				long identity = parameters.readLong();
-				query = REQUESTS[code] + "(" + catalog + ", " + identity + ")";
-				boolean value = getBooleanFor(catalog, identity);
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 5 -> {
-				int catalog = parameters.readInt();
-				long identity = parameters.readLong();
-				query = REQUESTS[code] + "(" + catalog + ", " + identity + ")";
-				String value = getStringFor(catalog, identity);
-				recordQuery(query, value);
-				ACS_Actor.writeString(returns, value);
-			}
-			case 6 -> setLongFor(parameters.readInt(), parameters.readLong(), parameters.readLong(), ACS_Actor.readString(parameters));
-			case 7 -> setDoubleFor(parameters.readInt(), parameters.readLong(), parameters.readDouble(), ACS_Actor.readString(parameters));
-			case 8 -> setBooleanFor(parameters.readInt(), parameters.readLong(), parameters.readBoolean(), ACS_Actor.readString(parameters));
-			case 9 -> setStringFor(parameters.readInt(), parameters.readLong(), ACS_Actor.readString(parameters), ACS_Actor.readString(parameters));
-			case 10 -> {
-				query = REQUESTS[code] + "()";
-				int[] identities = occupiedIdentities();
-				recordQuery(query, "int[" + identities.length + "]");
-				returns.writeInt(identities.length);
-				for(int identity : identities) { returns.writeInt(identity); }
-			}
-			case 11 -> returns.writeBoolean(ensureCapacity(parameters.readLong()));
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
-
-void recordQuery(String request, String response) {
-	journal.recordQueryRequest(request);
-	journal.recordQueryResponse(response);
-}
-
-/** What a refused request writes back: the error's message, or its class when it has none. */
-static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
-/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
-static String[] requestNames(Class<?> actor) {
-	ArrayList<String> names = new ArrayList<>();
-	for(Method method : actor.getMethods()) {
-		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
-		if(mark == null || method.isBridge()) { continue; }
-		while(names.size() <= mark.value()) { names.add(null); }
-		names.set(mark.value(), method.getName());
-	}
-	return names.toArray(new String[0]);
-}
-
 @Override
 public void doTraceableStep(byte stepPair, int[] params, int index) {
 	switch(stepPair) {
@@ -505,5 +402,7 @@ public void copyBooleansInto(int catalog, long from, long to, boolean[] dest, in
 	catalogRows.get(catalog).copyBooleansInto(from, to, dest, offset);
 }
 
+@Override
+public ACS_Journal getJournal() { return journal; }
 
 }

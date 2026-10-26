@@ -80,7 +80,7 @@ public int getToArity() { return getArityIdentity(2); }
  * on the via arity, or, with {@link #NO_PARALLEL_VIAS}, the one already there. Refuses an odd length, an
  * element its arity does not hold, and pairs a restriction forbids.
  * */
-@ACS_Requestable(15)
+@ACS_Requestable(20)
 public abstract int ensureVia(int[] pairs, String comment);
 
 /**
@@ -88,18 +88,18 @@ public abstract int ensureVia(int[] pairs, String comment);
  * False when, with {@link #NO_REPEATS}, it already was; refuses an identity its arity does not hold, and a
  * pair a restriction forbids.
  * */
-@ACS_Requestable(16)
+@ACS_Requestable(21)
 public abstract boolean addPair(int via, int from, int to, String comment);
 
 /** Removes the pair from what {@code via} matches, every time it is there, closing the gaps. False when it was not; refuses a removal a restriction forbids. */
-@ACS_Requestable(17)
+@ACS_Requestable(22)
 public abstract boolean removePair(int via, int from, int to, String comment);
 
 /**
  * Replaces what {@code via} matches with {@code pairs}, given as {@link #ensureVia} takes them, as one change:
  * refused for what the new list breaks, never for what breaks only midway. False when nothing changes.
  * */
-@ACS_Requestable(18)
+@ACS_Requestable(23)
 public abstract boolean setPairs(int via, int[] pairs, String comment);
 
 
@@ -130,7 +130,7 @@ public abstract void writeTosOf(int from, DataOutputStream dos) throws IOExcepti
 public abstract void writeFromsOf(int to, DataOutputStream dos) throws IOException;
 
 /** The via's pairs as from, to, from, to, as {@link #copyPairsInto} gives them. */
-@ACS_Requestable(19)
+@ACS_Requestable(24)
 public int[] pairsOf(int via) {
 	int[] pairs = new int[2 * pairCount(via)];
 	copyPairsInto(via, pairs, 0);
@@ -138,11 +138,11 @@ public int[] pairsOf(int via) {
 }
 
 /** What {@link #writeTosOf} writes, as an int[]: requests take and give no stream. */
-@ACS_Requestable(20)
+@ACS_Requestable(25)
 public abstract int[] tosOf(int from);
 
 /** What {@link #writeFromsOf} writes, as an int[]. */
-@ACS_Requestable(21)
+@ACS_Requestable(26)
 public abstract int[] fromsOf(int to);
 
 

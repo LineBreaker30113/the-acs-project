@@ -215,6 +215,7 @@ Answer actor(ACSED_Database database, Frame one) throws IOException {
 /** The actor a frame's type and index name; the core and the journal are index 0. */
 static ACS_Actor actorOf(ACS_Core core, int type, int index) {
 	ACS_Actor actor = switch(type) {
+		case ACSED_Request.DESCRIPTION -> index == 0 ? core.getDescriptionManager() : null;
 		case ACSED_Request.CORE -> index == 0 ? core : null;
 		case ACSED_Request.JOURNAL -> index == 0 ? core.getJournal() : null;
 		case ACSED_Request.ARITY -> index >= 0 && index < core.getArityCount() ? core.getArity(index) : null;

@@ -9,8 +9,10 @@ import org.jetbrains.java.decompiler.main.extern.IResultSaver;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -74,7 +76,7 @@ static Classes read(Path folder) {
 			Collections.sort(files);
 		}
 		return new Classes(store, core, journal, List.copyOf(numbered), arities, structures, List.copyOf(files));
-	} catch(IOException e) { throw new Refusal("cannot read the stored classes of " + folder + ": " + e.getMessage()); }
+	} catch(IOException e) { throw new Refusal("cannot read the stored classes of " + folder + ": " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())); }
 }
 
 static DataInputStream open(Path file) throws IOException { return new DataInputStream(new BufferedInputStream(Files.newInputStream(file))); }
@@ -87,14 +89,14 @@ static String header(DataInputStream dis, Path file) throws IOException {
 	return string(dis);
 }
 
-/** A string as ACSE writes one: its UTF-16 units after their count, -1 for null. */
+/** A string as ACSE writes one: its UTF-8 bytes after their count, "[ACS-NULL!!]" for null. */
 static String string(DataInputStream dis) throws IOException {
 	int length = dis.readInt();
-	if(length == -1) { return null; }
 	if(length < 0) { throw new IOException("string length " + length); }
-	char[] chars = new char[length];
-	for(int i = 0; i < length; i++) { chars[i] = dis.readChar(); }
-	return new String(chars);
+	byte[] bytes = dis.readNBytes(length);
+	if(bytes.length < length) { throw new EOFException("a string of " + length + " bytes ends after " + bytes.length); }
+	String string = new String(bytes, StandardCharsets.UTF_8);
+	return string.equals("[ACS-NULL!!]") ? null : string;
 }
 
 static int count(DataInputStream dis, Path file) throws IOException {

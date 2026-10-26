@@ -11,8 +11,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import static org.halim.acse.structure.UnaryRestrictions.*;
-import static org.halim.acse.structure.BinaryRestrictions.*;
+import static org.halim.acs.structure.UnaryRestrictions.*;
+import static org.halim.acs.structure.BinaryRestrictions.*;
 
 
 /**

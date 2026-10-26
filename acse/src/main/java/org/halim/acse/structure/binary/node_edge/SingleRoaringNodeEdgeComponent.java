@@ -3,15 +3,14 @@ package org.halim.acse.structure.binary.node_edge;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_Requestable;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import static org.halim.acse.structure.UnaryRestrictions.*;
-import static org.halim.acse.structure.BinaryRestrictions.*;
+import static org.halim.acs.structure.UnaryRestrictions.*;
+import static org.halim.acs.structure.BinaryRestrictions.*;
 
 
 /**

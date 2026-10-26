@@ -20,7 +20,7 @@ public static AcsessServer servicePort;
 public static ApplicationController guiAdapter;
 
 public static void main(String[] args) {
-	List<String> program = args.length == 0 ? List.of("acsess") : List.of(args);
+	List<String> program = args.length == 0 ? defaultProgram() : List.of(args);
 	servicePort = new AcsessServer(new Acsess(program));
 	com.formdev.flatlaf.FlatDarkLaf.setup();
 	guiAdapter = new ApplicationController(servicePort);
@@ -28,6 +28,21 @@ public static void main(String[] args) {
 		JFrame frame = new JFrame("ACSESS GUI");
 		guiAdapter.deployTo(frame);
 	});
+}
+
+static List<String> defaultProgram() {
+	String env = System.getenv("ACSESS_PATH");
+	if(env != null && !env.isBlank()) { return List.of(env); }
+	for(String candidate : List.of(
+		"acses/target/acsess/bin/acsess",
+		"acses/src/main/bin/acsess",
+		"../acses/target/acsess/bin/acsess",
+		"../acses/src/main/bin/acsess"
+	)) {
+		java.nio.file.Path path = java.nio.file.Path.of(candidate);
+		if(java.nio.file.Files.isExecutable(path)) { return List.of(path.toAbsolutePath().normalize().toString()); }
+	}
+	return List.of("acsess");
 }
 
 }

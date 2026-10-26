@@ -6,10 +6,8 @@ import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.ACS_Requestable;
 
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -36,10 +34,8 @@ final IntArrayList segments = new IntArrayList();
 /** [transaction, firstSegment, actor, parent, booleansStart, objectsStart] per request, nested ones included; parent is -1 for a client request, actor as {@link #actorIdOf} packs it. */
 final IntArrayList requests = new IntArrayList();
 static final int FIELDS = 6, TRANSACTION = 0, SEGMENT = 1, ACTOR = 2, PARENT = 3, BOOLEANS = 4, OBJECTS = 5;
-/** An actor's type, as a request's address names it; the journal's own, -128, never records. */
-static final byte CORE = 0, ARITY = 1, STRUCTURE = 2;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = requestNames(ACSE_JournalBasic.class);
+/** An actor's type, as a request's address names it; the journal's own, 2, never records. */
+static final byte DESCRIPTION = 0, CORE = 1, JOURNAL = 2, ARITY = 3, ROW = 4, STRUCTURE = 5, PROCEDURE = 7;
 /** [methodName, comment] per request. */
 final ArrayList<String> texts = new ArrayList<>();
 /** First request of each transaction. */
@@ -379,9 +375,11 @@ static void string(StringBuilder line, String string) {
 static String className(Object object) { return object == null ? null : object.getClass().getName(); }
 
 
-/** The actor's type in the high byte and its slot in the low three, so one int per request holds both: the core is 0, arity k is 1 << 24 | k, structure k is 2 << 24 | k. */
+/** The actor's type in the high byte and its slot in the low three, so one int per request holds both: description is 0, the core is 1, arity k is 3 << 24 | k, structure k is 5 << 24 | k. */
 int actorIdOf(ACS_Actor actor) {
+	if(actor == core.getDescriptionManager()) { return actorId(DESCRIPTION, 0); }
 	if(actor == core) { return actorId(CORE, 0); }
+	if(actor == this) { return actorId(JOURNAL, 0); }
 	for(int i = 0; i < core.getArityCount(); i++) { if(core.getArity(i) == actor) { return actorId(ARITY, i); } }
 	for(int i = 0; i < core.getStructureCount(); i++) { if(core.getStructure(i) == actor) { return actorId(STRUCTURE, i); } }
 	throw new IllegalArgumentException(className(actor) + " is not added to the core");
@@ -395,82 +393,21 @@ static int actorId(byte type, int slot) {
 ACS_Actor actorOf(int actor) {
 	int slot = actor & 0xFFFFFF;
 	return switch((byte) (actor >> 24)) {
+		case DESCRIPTION -> core.getDescriptionManager();
 		case CORE -> core;
+		case JOURNAL -> this;
 		case ARITY -> core.getArity(slot);
 		case STRUCTURE -> core.getStructure(slot);
 		default -> throw new IllegalStateException("actor id " + actor + " names no type");
 	};
 }
 
-/**
- * The requests, by code in the order of the marks. A read is recorded as a query: its method's name and
- * inputs, then its answer, or its refusal. A write during an inspection is refused where it is recorded,
- * in {@link #beginRecordingActivity}, so nothing more is checked here; undo and redo move during one, as
- * {@link #inspectAt} lets them.
- * */
-@Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> undoLastActivity();
-			case 1 -> redoLastActivity();
-			case 2 -> undoUntilActivityIndex(parameters.readInt());
-			case 3 -> redoUntilActivityIndex(parameters.readInt());
-			case 4 -> inspectAt(parameters.readInt());
-			case 5 -> endInspection();
-			case 6 -> {
-				query = REQUESTS[code] + "()";
-				boolean inspecting = isInspecting();
-				recordQuery(query, Boolean.toString(inspecting));
-				returns.writeBoolean(inspecting);
-			}
-			case 7 -> {
-				query = REQUESTS[code] + "()";
-				int index = getCurrentActivityIndex();
-				recordQuery(query, Integer.toString(index));
-				returns.writeInt(index);
-			}
-			case 8 -> {
-				query = REQUESTS[code] + "()";
-				int pending = getPendingActivityCount();
-				recordQuery(query, Integer.toString(pending));
-				returns.writeInt(pending);
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
-
 /** The journal records no steps of its own: a journal traced as an actor is a timeline of several branches, which is out of scope. */
 @Override
 public void doTraceableStep(byte stepPair, int[] params, int index) { throw new UnsupportedOperationException("This feature is out of MVP"); }
 
-void recordQuery(String request, String response) {
-	recordQueryRequest(request);
-	recordQueryResponse(response);
-}
-
 /** What a refused request writes back: the error's message, or its class when it has none. */
 static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
-/** The names of the class's requests by their codes, from the marks, so no name is a literal. */
-static String[] requestNames(Class<?> actor) {
-	ArrayList<String> names = new ArrayList<>();
-	for(Method method : actor.getMethods()) {
-		ACS_Requestable mark = method.getAnnotation(ACS_Requestable.class);
-		if(mark == null || method.isBridge()) { continue; }
-		while(names.size() <= mark.value()) { names.add(null); }
-		names.set(mark.value(), method.getName());
-	}
-	return names.toArray(new String[0]);
-}
 
 /** Reuses the last segment when nothing was recorded in it. */
 void openSegment(int request) {
@@ -527,5 +464,8 @@ void checkIdle() {
 	checkNotReplaying();
 	if(!openRequests.isEmpty()) { throw new IllegalStateException("request " + openRequests.topInt() + " is still open"); }
 }
+
+@Override
+public ACS_Journal getJournal() { return this; }
 
 }

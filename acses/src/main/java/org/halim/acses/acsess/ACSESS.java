@@ -263,11 +263,14 @@ static Translated addressed(Path socket, String key, long timeout, String addres
 		targets.add(new int[] {ACSED_Request.JOURNAL, 0});
 	} else if(actor.equals("core")) { targets.add(new int[] {ACSED_Request.CORE, 0}); }
 	else if(actor.equals("journal")) { targets.add(new int[] {ACSED_Request.JOURNAL, 0}); }
+	else if(actor.equals("description")) { targets.add(new int[] {ACSED_Request.DESCRIPTION, 0}); }
 	else if(actor.matches("arity-\\d+(\\.row-\\d+)?")) {
 		int dot = actor.indexOf(".row-");
 		targets.add(new int[] {ACSED_Request.ARITY, number(actor.substring(6, dot < 0 ? actor.length() : dot))});
 		if(dot >= 0) { row = number(actor.substring(dot + 5)); }
-	} else { throw new IllegalArgumentException(address + ": after the colon comes nothing, core, journal, arity-<k> or arity-<k>.row-<j>"); }
+	} else if(actor.matches("structure-\\d+")) {
+		targets.add(new int[] {ACSED_Request.STRUCTURE, number(actor.substring(10))});
+	} else { throw new IllegalArgumentException(address + ": after the colon comes nothing, core, journal, description, arity-<k>, arity-<k>.row-<j> or structure-<k>"); }
 	Line probe = only(acsed.get(1).named("probe"), "probe");
 	ArrayList<ACSED_Request.Frame> probes = new ArrayList<>();
 	for(int[] target : targets) { probes.add(new ACSED_Request.Frame(database.index, ACSED_Request.ACSED, 0, 0, key, 0, written(probe, List.of(Integer.toString(target[0]), Integer.toString(target[1]))))); }

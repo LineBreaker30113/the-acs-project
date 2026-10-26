@@ -26,19 +26,28 @@ int recordQueryRequest(String description);
 /** Completes a request that does not mutate, it is not bound to be a single method and provider gives the full description */
 int recordQueryResponse(String description);
 
+@ACS_Requestable(0)
 void undoLastActivity();
+@ACS_Requestable(1)
 void redoLastActivity();
+@ACS_Requestable(2)
 void undoUntilActivityIndex(int activityIndex);
+@ACS_Requestable(3)
 void redoUntilActivityIndex(int activityIndex);
 /** Undoes or redoes as needed. */
+@ACS_Requestable(4)
 void inspectAt(int activityIndex);
 /** Returns to the last point prior to made inspection. */
+@ACS_Requestable(5)
 void endInspection();
 /** Whether an inspection holds a return point; while it does, beginRecordingActivity refuses, since recording would drop the way back. */
+@ACS_Requestable(6)
 boolean isInspecting();
 /** The last request of the last applied transaction, -1 when none is applied. */
+@ACS_Requestable(7)
 int getCurrentActivityIndex();
 /** How many requests the transactions after the current point hold, which redo can apply again. */
+@ACS_Requestable(8)
 int getPendingActivityCount();
 
 void storeAll(DataOutputStream dos) throws IOException;

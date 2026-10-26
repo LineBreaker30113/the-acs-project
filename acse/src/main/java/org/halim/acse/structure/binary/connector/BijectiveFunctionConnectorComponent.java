@@ -2,7 +2,6 @@ package org.halim.acse.structure.binary.connector;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
 import org.halim.acs.structure.ACS_BinaryStructure;
@@ -10,10 +9,8 @@ import org.halim.acs.structure.ACS_BinaryStructure;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 
-import static org.halim.acse.structure.BinaryRestrictions.*;
+import static org.halim.acs.structure.BinaryRestrictions.*;
 
 
 /**
@@ -32,8 +29,6 @@ public class BijectiveFunctionConnectorComponent implements ACS_BinaryStructure 
 
 /** The match (primary, complement); the negative pair breaks it, by the same flips. */
 static final byte CONNECT = 1;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = ACS_Actor.requestNames(BijectiveFunctionConnectorComponent.class);
 static final int EVERY_BIT = AT_MOST_ONE_COMPLEMENT | AT_MOST_ONE_PRIMARY | EVERY_PRIMARY_CONNECTED | EVERY_COMPLEMENT_CONNECTED | NO_REPEATS;
 static final int REQUIRED = AT_MOST_ONE_COMPLEMENT | AT_MOST_ONE_PRIMARY | NO_REPEATS;
 
@@ -303,81 +298,7 @@ public boolean setPrimariesOf(int cluster, int[] elements, String comment) {
 	return held >= 0 && unrelateFromBinary(held, cluster, comment);
 }
 
-
-/**
- * The requests, by the codes {@link ACS_BinaryStructure} marks: each reads its inputs, calls the public
- * method, which keeps its checks, and writes the result. A read is recorded as a query: its method's name
- * and inputs, then its answer, or its refusal; a list is answered by its length.
- * */
 @Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> returns.writeBoolean(relateToBinary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(unrelateFromBinary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2 -> {
-				int primary = parameters.readInt(), complement = parameters.readInt();
-				query = REQUESTS[code] + "(" + primary + ", " + complement + ")";
-				boolean value = isRelatedToBinary(primary, complement);
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 3 -> returns.writeBoolean(setComplement(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 4 -> returns.writeBoolean(setPrimary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 5 -> returns.writeBoolean(setComplementsOf(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 6 -> returns.writeBoolean(setPrimariesOf(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 7 -> returns.writeBoolean(moveBinary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 8 -> returns.writeBoolean(mergeBinary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 9, 10 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int value = code == 9 ? complementCount(identity) : primaryCount(identity);
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 11, 12 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int[] value = code == 11 ? getComplementsOf(identity) : getPrimariesOf(identity);
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
-
-
-void recordQuery(String request, String response) {
-	journal.recordQueryRequest(request);
-	journal.recordQueryResponse(response);
-}
-
-/** What a refused request writes back: the error's message, or its class when it has none. */
-static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
-
-/** An int[] on the wire: its length, then its elements. */
-static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
-	dos.writeInt(ints.length);
-	for(int value : ints) { dos.writeInt(value); }
-}
-
-/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
-static int[] readInts(DataInputStream dis) throws IOException {
-	int length = dis.readInt();
-	if(length < 0) { throw new IOException("int[] length " + length); }
-	IntArrayList ints = new IntArrayList();
-	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
-	return ints.toIntArray();
-}
-
+public ACS_Journal getJournal() { return journal; }
 
 }

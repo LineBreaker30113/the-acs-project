@@ -11,8 +11,8 @@
 
 - Verbatim: [The views] like core and journal can be represented by a single view's types, the name for now
   is kernel, the view will contain three types: Core, Journal, ACS-City. [...] Kernel view handles the
-  kernel concepts of the database, single goal. [...] A, acs-city moves to kernel. *(2026-10-26)*
-  Meaning: one Kernel view with the types Core, Journal and ACS-City, its single goal the database's
+  kernel concepts of the database, single goal. [...] A, acs-city moves to kernel. [...] Make the request console another kernel view, the fourth one hereby. *(2026-10-26)*
+  Meaning: one Kernel view with the types Core, Journal, ACS-City and Console, its single goal the database's
   kernel concepts; the name is for now.
   Commons: (acsess-gui 10) each view has a single goal.
   Complements: (acsess-gui 2) the views core and journal.

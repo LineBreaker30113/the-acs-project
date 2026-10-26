@@ -1,8 +1,6 @@
 package org.halim.acse;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.persistence.ACS_DescriptionManager;
@@ -26,13 +24,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
 
 /** Components by slot, with their addition and removal journaled. Nothing here is multi thread safe. */
-public class ACSE_CoreBasic implements ACS_Core, ACS_DescriptionManager {
+public class ACSE_CoreBasic implements ACS_Core {
 
 /** Built for this core by the factory a constructor is given, so its class is the caller's choice; a load's is the one the folder's indexer names. */
 public final ACS_Journal journal;
@@ -46,17 +42,8 @@ final int[] params = new int[2];
  * */
 Path root;
 
-/** The descriptions are kept outside the journal: undo leaves them alone, and a removed component keeps its own. */
-String coreDescription;
-/** By slot, beside the components. */
-final ArrayList<String> arityDescriptions = new ArrayList<>();
-final ArrayList<String> structureDescriptions = new ArrayList<>();
-/** The arity in the high half of the key, the row in the low half. */
-final Long2ObjectOpenHashMap<String> catalogRowDescriptions = new Long2ObjectOpenHashMap<>();
-/** By class name, so a description is kept and stored even while its class is not loaded. */
-final HashMap<String, String> arityClassDescriptions = new HashMap<>();
-final HashMap<String, String> catalogRowClassDescriptions = new HashMap<>();
-final HashMap<String, String> structureClassDescriptions = new HashMap<>();
+/** The descriptions, held as their own actor per acs 95. */
+final ACSE_DescriptionManagerBasic descriptions;
 
 static final byte ARITY = 1, STRUCTURE = 2;
 
@@ -72,7 +59,10 @@ public ACSE_CoreBasic() { this(ACSE_JournalBasic::new); }
  * rather than finished, because it holds the core it records for; {@link ACS_PersistenceManager#loadCore}
  * passes one that builds the class a folder's indexer names.
  * */
-public ACSE_CoreBasic(Function<ACS_Core, ACS_Journal> journal) { this.journal = journal.apply(this); }
+public ACSE_CoreBasic(Function<ACS_Core, ACS_Journal> journal) {
+	this.journal = journal.apply(this);
+	this.descriptions = new ACSE_DescriptionManagerBasic(this);
+}
 
 
 @Override
@@ -83,6 +73,9 @@ public ACS_ArityComponentBase getArity(int arity) { return arities.get(arity); }
 
 @Override
 public ACS_Journal getJournal() { return journal; }
+
+@Override
+public ACS_DescriptionManager getDescriptionManager() { return descriptions; }
 
 @Override
 public int getStructureCount() { return structures.size(); }
@@ -96,12 +89,12 @@ public ACS_StructureBase getStructure(int structure) { return structures.get(str
 public void addArity(String description, String comment) { addArity(new ACSE_ComposableArityCatalog(new IdentitiesSetNegativeInt(-1), journal), description, comment); }
 
 @Override
-public void addArity(ACS_ArityComponentBase acseArityComponent, String description, String comment) { addComponent(arities, acseArityComponent, arityDescriptions, description, ARITY, "addArity", comment); }
+public void addArity(ACS_ArityComponentBase acseArityComponent, String description, String comment) { addComponent(arities, acseArityComponent, descriptions.arityDescriptions, description, ARITY, "addArity", comment); }
 
 @Override
 public int addCatalogRow(int arity, ACS_ArityCatalogRowBase row, String description, String comment) {
 	int catalog = composable(arity).addCatalogRow(row, comment);
-	catalogRowDescriptions.put(rowKey(arity, catalog), description);
+	descriptions.catalogRowDescriptions.put(descriptions.rowKey(arity, catalog), description);
 	return catalog;
 }
 
@@ -191,7 +184,7 @@ public int addStructure(DataInputStream parameters, DataOutputStream returns, St
 }
 
 @Override
-public void addStructure(ACS_StructureBase acseArityComponent, String description, String comment) { addComponent(structures, acseArityComponent, structureDescriptions, description, STRUCTURE, "addStructure", comment); }
+public void addStructure(ACS_StructureBase acseArityComponent, String description, String comment) { addComponent(structures, acseArityComponent, descriptions.structureDescriptions, description, STRUCTURE, "addStructure", comment); }
 
 @ACS_Requestable(2)
 @Override
@@ -219,6 +212,7 @@ public void delegateRemoval(int arity, int instance, String comment) {
 @ACS_Requestable(5)
 @Override
 public long captureIdentity(int arity, String comment) {
+	if(isCausedArity(arity)) { throw new IllegalStateException("arity " + arity + " is caused by a structure; client capture is refused"); }
 	int request = journal.beginRecordingActivity(this, "captureIdentity", params, comment);
 	int identity;
 	try {
@@ -237,6 +231,7 @@ public long captureIdentity(int arity, String comment) {
 @ACS_Requestable(6)
 @Override
 public long captureIdentity(int arity, long identity, String comment) {
+	if(isCausedArity(arity)) { throw new IllegalStateException("arity " + arity + " is caused by a structure; client capture is refused"); }
 	ACS_ArityComponentBase target = arities.get(arity);
 	int chosen = Math.toIntExact(identity);
 	if(chosen < 0) { throw new IllegalArgumentException("identity " + identity + " is negative"); }
@@ -253,6 +248,16 @@ public long captureIdentity(int arity, long identity, String comment) {
 	return chosen;
 }
 
+private boolean isCausedArity(int arity) {
+	for(ACS_StructureBase structure : structures) {
+		if(structure == null) { continue; }
+		for(int i = 0; i < structure.getArityCount(); i++) {
+			if(structure.getArityIdentity(i) == arity && structure.isCaused(i)) { return true; }
+		}
+	}
+	return false;
+}
+
 void forgetEverywhere(int arity, int identity) {
 	for(ACS_StructureBase structure : structures) {
 		if(structure != null && structure.isRelatedArity(arity)) { structure.forget(arity, identity); }
@@ -260,54 +265,6 @@ void forgetEverywhere(int arity, int identity) {
 }
 
 
-@Override
-public String getCoreDescription() { return coreDescription; }
-
-@Override
-public void setCoreDescription(String coreDescription) { this.coreDescription = coreDescription; }
-
-@Override
-public String getArityDescription(int arityIndex) { return arityDescriptions.get(arityIndex); }
-
-@Override
-public void setArityDescription(int arityIndex, String arityDescription) { arityDescriptions.set(arityIndex, arityDescription); }
-
-@Override
-public String getArityCatalogRowDescription(int arityIndex, int rowIndex) { return catalogRowDescriptions.get(rowKey(arityIndex, rowIndex)); }
-
-@Override
-public void setArityCatalogRowDescription(int arityIndex, int rowIndex, String arityDescription) { catalogRowDescriptions.put(rowKey(arityIndex, rowIndex), arityDescription); }
-
-@Override
-public String getStructureDescription(int structureIndex) { return structureDescriptions.get(structureIndex); }
-
-@Override
-public void setStructureDescription(int structureIndex, String structureDescription) { structureDescriptions.set(structureIndex, structureDescription); }
-
-@Override
-public String getArityClassDescription(String className) { return arityClassDescriptions.get(className); }
-
-@Override
-public void setArityClassDescription(String className, String arityDescription) { arityClassDescriptions.put(className, arityDescription); }
-
-@Override
-public String getArityCatalogRowClassDescription(String className) { return catalogRowClassDescriptions.get(className); }
-
-@Override
-public void setArityCatalogRowClassDescription(String className, String arityDescription) { catalogRowClassDescriptions.put(className, arityDescription); }
-
-@Override
-public String getStructureClassDescription(String className) { return structureClassDescriptions.get(className); }
-
-@Override
-public void setStructureClassDescription(String className, String arityDescription) { structureClassDescriptions.put(className, arityDescription); }
-
-/** Throws for a slot out of range; the row is checked only against a live arity, since a removed one's row count went with it. */
-long rowKey(int arity, int row) {
-	ACS_ArityComponentBase target = arities.get(arity);
-	if(target != null) { Objects.checkIndex(row, target.catalogCount()); }
-	return (long) arity << 32 | Integer.toUnsignedLong(row);
-}
 
 
 /**
@@ -340,7 +297,7 @@ public List<String> store(Path folder) throws IOException {
 		table.place = "structure " + slot;
 		if(!ACSE_PersistenceManagerBasic.write(folder.resolve(structureFile(slot)), table, structure::saveTo)) { throw new IOException("structure " + slot + " refused to be stored"); }
 	}
-	ACSE_PersistenceManagerBasic.write(folder.resolve(DESCRIPTIONS), table, this::writeDescriptions);
+	ACSE_PersistenceManagerBasic.write(folder.resolve(DESCRIPTIONS), table, descriptions::writeDescriptions);
 	ACSE_PersistenceManagerBasic.write(folder.resolve(JOURNAL_LOG), table, dos -> { journal.storeAll(dos); return true; });
 	ACSE_PersistenceManagerBasic.write(folder.resolve(INDEXER), table, dos -> writeIndexer(dos, table, aritySlots, structureSlots));
 	ACSE_PersistenceManagerBasic.storeClasses(folder, table, getClass(), journal.getClass());
@@ -376,12 +333,12 @@ public void load(Path folder) throws IOException {
 	ClassLoader loader = getClass().getClassLoader();
 	IntArrayList aritySlots = new IntArrayList(), structureSlots = new IntArrayList();
 	Class<?>[] classes = ACSE_PersistenceManagerBasic.read(folder.resolve(INDEXER), null, dis -> readIndexer(dis, folder.resolve(INDEXER), loader, aritySlots, structureSlots));
-	String priorCoreDescription = coreDescription;
-	HashMap<String, String> priorArityClasses = new HashMap<>(arityClassDescriptions);
-	HashMap<String, String> priorRowClasses = new HashMap<>(catalogRowClassDescriptions);
-	HashMap<String, String> priorStructureClasses = new HashMap<>(structureClassDescriptions);
+	String priorCoreDescription = descriptions.coreDescription;
+	HashMap<String, String> priorArityClasses = new HashMap<>(descriptions.arityClassDescriptions);
+	HashMap<String, String> priorRowClasses = new HashMap<>(descriptions.catalogRowClassDescriptions);
+	HashMap<String, String> priorStructureClasses = new HashMap<>(descriptions.structureClassDescriptions);
 	try {
-		ACSE_PersistenceManagerBasic.read(folder.resolve(DESCRIPTIONS), classes, dis -> readDescriptions(dis, aritySlots.size(), structureSlots.size()));
+		ACSE_PersistenceManagerBasic.read(folder.resolve(DESCRIPTIONS), classes, dis -> descriptions.readDescriptions(dis, aritySlots.size(), structureSlots.size()));
 		for(int slot = 0; slot < aritySlots.size(); slot++) {
 			int number = aritySlots.getInt(slot);
 			arities.add(number < 0 ? null : ACSE_PersistenceManagerBasic.read(folder.resolve(arityFile(slot)), classes, dis -> ACSE_PersistenceManagerBasic.build(classes[number], ACS_ArityComponentBase.class, this, journal, dis)));
@@ -394,13 +351,13 @@ public void load(Path folder) throws IOException {
 	} catch(IOException | RuntimeException | Error e) {
 		arities.clear();
 		structures.clear();
-		arityDescriptions.clear();
-		structureDescriptions.clear();
-		catalogRowDescriptions.clear();
-		coreDescription = priorCoreDescription;
-		replace(arityClassDescriptions, priorArityClasses);
-		replace(catalogRowClassDescriptions, priorRowClasses);
-		replace(structureClassDescriptions, priorStructureClasses);
+		descriptions.arityDescriptions.clear();
+		descriptions.structureDescriptions.clear();
+		descriptions.catalogRowDescriptions.clear();
+		descriptions.coreDescription = priorCoreDescription;
+		ACSE_DescriptionManagerBasic.replace(descriptions.arityClassDescriptions, priorArityClasses);
+		ACSE_DescriptionManagerBasic.replace(descriptions.catalogRowClassDescriptions, priorRowClasses);
+		ACSE_DescriptionManagerBasic.replace(descriptions.structureClassDescriptions, priorStructureClasses);
 		throw e;
 	}
 }
@@ -444,62 +401,6 @@ static void readSlots(DataInputStream dis, IntArrayList slots, int classCount) t
 	}
 }
 
-/** The core's description, each slot's, each catalog row's, and each class's by name. */
-boolean writeDescriptions(DataOutputStream dos) throws IOException {
-	ACS_PersistenceManager.writeString(dos, coreDescription);
-	writeStrings(dos, arityDescriptions);
-	writeStrings(dos, structureDescriptions);
-	dos.writeInt(catalogRowDescriptions.size());
-	for(Long2ObjectMap.Entry<String> entry : catalogRowDescriptions.long2ObjectEntrySet()) {
-		dos.writeLong(entry.getLongKey());
-		ACS_PersistenceManager.writeString(dos, entry.getValue());
-	}
-	writeNames(dos, arityClassDescriptions);
-	writeNames(dos, catalogRowClassDescriptions);
-	writeNames(dos, structureClassDescriptions);
-	return true;
-}
-
-/** Refuses descriptions for a slot count other than the indexer's. */
-boolean readDescriptions(DataInputStream dis, int arityCount, int structureCount) throws IOException {
-	coreDescription = ACS_PersistenceManager.readString(dis);
-	readStrings(dis, arityDescriptions, arityCount, "arity");
-	readStrings(dis, structureDescriptions, structureCount, "structure");
-	for(int i = 0, count = dis.readInt(); i < count; i++) { catalogRowDescriptions.put(dis.readLong(), ACS_PersistenceManager.readString(dis)); }
-	readNames(dis, arityClassDescriptions);
-	readNames(dis, catalogRowClassDescriptions);
-	readNames(dis, structureClassDescriptions);
-	return true;
-}
-
-static void writeStrings(DataOutputStream dos, ArrayList<String> strings) throws IOException {
-	dos.writeInt(strings.size());
-	for(String string : strings) { ACS_PersistenceManager.writeString(dos, string); }
-}
-
-static void readStrings(DataInputStream dis, ArrayList<String> strings, int expected, String kind) throws IOException {
-	int count = dis.readInt();
-	if(count != expected) { throw new IOException(count + " " + kind + " descriptions for " + expected + " " + kind + " slots"); }
-	for(int slot = 0; slot < count; slot++) { strings.add(ACS_PersistenceManager.readString(dis)); }
-}
-
-static void writeNames(DataOutputStream dos, HashMap<String, String> descriptions) throws IOException {
-	dos.writeInt(descriptions.size());
-	for(Map.Entry<String, String> entry : descriptions.entrySet()) {
-		ACS_PersistenceManager.writeString(dos, entry.getKey());
-		ACS_PersistenceManager.writeString(dos, entry.getValue());
-	}
-}
-
-static void readNames(DataInputStream dis, HashMap<String, String> descriptions) throws IOException {
-	for(int i = 0, count = dis.readInt(); i < count; i++) { descriptions.put(ACS_PersistenceManager.readString(dis), ACS_PersistenceManager.readString(dis)); }
-}
-
-static void replace(HashMap<String, String> descriptions, HashMap<String, String> with) {
-	descriptions.clear();
-	descriptions.putAll(with);
-}
-
 static String arityFile(int slot) { return "arity-" + slot + ".bin"; }
 static String structureFile(int slot) { return "structure-" + slot + ".bin"; }
 /** A row made by name keeps its values here, at the database's root; a single file holding several rows would be {@code arity-<k>-row-<j>plus.bin}. */
@@ -527,25 +428,14 @@ static String rowFile(int arity, int row) { return "arity-" + arity + "-row-" + 
 	complete(request);
 }
 
-/** The requests, by code in the order of the marks: each reads its inputs, calls the public method, which keeps its checks, and writes the result. */
+/** Code 7, {@link #addStructure(String, String)}, reads the structure's class and settings past its marked inputs, so it is taken here; the others go to {@link ACS_Actor#dispatch}. */
 @Override
 public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
 	int code = parameters.readInt();
+	if(code != 7) { return ACS_Actor.dispatch(this, code, parameters, returns); }
 	try {
-		switch(code) {
-			case 0 -> addArity(ACS_Actor.readString(parameters), ACS_Actor.readString(parameters));
-			case 1 -> returns.writeInt(addCatalogRow(parameters.readInt(), ACS_Actor.readString(parameters), ACS_Actor.readString(parameters), ACS_Actor.readString(parameters)));
-			case 2 -> removeArity(parameters.readInt(), ACS_Actor.readString(parameters));
-			case 3 -> removeStructure(parameters.readInt(), ACS_Actor.readString(parameters));
-			case 4 -> delegateRemoval(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters));
-			case 5 -> returns.writeLong(captureIdentity(parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 6 -> returns.writeLong(captureIdentity(parameters.readInt(), parameters.readLong(), ACS_Actor.readString(parameters)));
-			case 7 -> {
-				String description = ACS_Actor.readString(parameters), comment = ACS_Actor.readString(parameters);
-				returns.writeInt(addStructure(parameters, returns, description, comment));
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
+		String description = ACS_Actor.readString(parameters), comment = ACS_Actor.readString(parameters);
+		returns.writeInt(addStructure(parameters, returns, description, comment));
 	} catch(RuntimeException e) {
 		ACS_Actor.writeString(returns, ACSE_JournalBasic.reason(e));
 		return false;

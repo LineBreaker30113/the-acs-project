@@ -31,15 +31,15 @@ default int getComplementArity() { return getArityIdentity(2); }
 
 
 /** The relation takes the primary and gives the complement, as one change, along with what it holds already. False when it did both. */
-@ACS_Requestable(0)
+@ACS_Requestable(5)
 boolean relateToTernary(int primary, int relation, int complement, String comment);
 
 /** The relation drops both the primary and the complement, as one change; false when it held neither. */
-@ACS_Requestable(1)
+@ACS_Requestable(6)
 boolean unrelateFromTernary(int primary, int relation, int complement, String comment);
 
 /** Whether the relation takes the primary and gives the complement. */
-@ACS_Requestable(2)
+@ACS_Requestable(7)
 default boolean isRelatedToTernary(int primary, int relation, int complement) {
 	boolean taken = false, given = false;
 	for(int at : takenOf(relation)) { taken |= at == primary; }
@@ -48,27 +48,27 @@ default boolean isRelatedToTernary(int primary, int relation, int complement) {
 }
 
 /** The relation takes the primary. False when it already does; refuses an identity its arity does not hold. */
-@ACS_Requestable(3)
+@ACS_Requestable(8)
 boolean take(int primary, int relation, String comment);
 
 /** The relation no longer takes the primary; false when it did not. */
-@ACS_Requestable(4)
+@ACS_Requestable(9)
 boolean untake(int primary, int relation, String comment);
 
 /** The relation gives the complement, as {@link #take} takes. */
-@ACS_Requestable(5)
+@ACS_Requestable(10)
 boolean give(int relation, int complement, String comment);
 
 /** The relation no longer gives the complement; false when it did not. */
-@ACS_Requestable(6)
+@ACS_Requestable(11)
 boolean ungive(int relation, int complement, String comment);
 
 /** What the relation takes becomes {@code primaries}, a repeat counting once, as one change. False when nothing changes. */
-@ACS_Requestable(7)
+@ACS_Requestable(12)
 boolean setTaken(int relation, int[] primaries, String comment);
 
 /** What the relation gives becomes {@code complements}, as {@link #setTaken} sets what it takes. */
-@ACS_Requestable(8)
+@ACS_Requestable(13)
 boolean setGiven(int relation, int[] complements, String comment);
 
 /**
@@ -76,7 +76,7 @@ boolean setGiven(int relation, int[] complements, String comment);
  * Two changes in one request, so refused where the merged lists break a restriction. False when nothing
  * changes.
  * */
-@ACS_Requestable(9)
+@ACS_Requestable(14)
 default boolean moveTernary(int source, int target, String comment) {
 	boolean changed = mergeTernary(source, target, comment);
 	changed |= setTaken(source, new int[0], comment);
@@ -84,7 +84,7 @@ default boolean moveTernary(int source, int target, String comment) {
 }
 
 /** As {@link #moveTernary}, but {@code source} keeps what it holds. */
-@ACS_Requestable(10)
+@ACS_Requestable(15)
 default boolean mergeTernary(int source, int target, String comment) {
 	IntOpenHashSet taken = new IntOpenHashSet(takenOf(target)), given = new IntOpenHashSet(givenOf(target));
 	for(int at : takenOf(source)) { taken.add(at); }
@@ -95,19 +95,19 @@ default boolean mergeTernary(int source, int target, String comment) {
 
 
 /** The primaries the relation takes, in the order the implementation states. */
-@ACS_Requestable(11)
+@ACS_Requestable(16)
 int[] takenOf(int relation);
 
 /** The complements the relation gives, in the order the implementation states. */
-@ACS_Requestable(12)
+@ACS_Requestable(17)
 int[] givenOf(int relation);
 
 /** The relations taking the primary, ascending. */
-@ACS_Requestable(13)
+@ACS_Requestable(18)
 int[] takersOf(int primary);
 
 /** The relations giving the complement, ascending. */
-@ACS_Requestable(14)
+@ACS_Requestable(19)
 int[] giversOf(int complement);
 
 default int takenCount(int relation) { return takenOf(relation).length; }

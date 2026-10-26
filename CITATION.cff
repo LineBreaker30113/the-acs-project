@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "The ACS Project: Arity Component System"
+authors:
+  - family-names: Esen
+    given-names: Abdülhalim
+repository-code: "https://github.com/LineBreaker30113/the-acs-project"
+url: "https://github.com/LineBreaker30113/the-acs-project"
+abstract: >-
+  The Arity Component System (ACS) is an academic research project investigating
+  the convergence of Polyadic Formal Concept Analysis (FCA), dynamically
+  composable database architectures, and neuro-symbolic reasoning. Developed as an
+  experimental research testbed for high-reasoning Retrieval-Augmented Generation
+  (RAG), ACS models knowledge by structuring entities—such as factual
+  paragraphs—across mathematical relations for PFCA reasoning, underpinned by
+  well-defined procedures for verifiable information processing. To explore how
+  autonomous agents reason over evolving knowledge, ACS introduces a live runtime
+  class-loading mechanism that allows agents to safely synthesize, execute, and
+  verify procedures while the database serves queries. The project formally
+  investigates the fundamental trade-off between raw transaction latency and dynamic
+  composability, serving as a formal laboratory for autonomous knowledge graph
+  synthesis, request-level citation auditing, and lattice-based topological
+  retrieval.
+version: 0.1.0-SNAPSHOT
+date-released: "2026-10-26"
+license: AGPL-3.0-only
+keywords:
+  - "polyadic-formal-concept-analysis"
+  - "formal-concept-analysis"
+  - "neuro-symbolic-ai"
+  - "knowledge-representation"
+  - "formal-methods"
+  - "retrieval-augmented-generation"
+  - "composable-database-systems"
+  - "agentic-reasoning"
+  - "research-testbed"
+  - "multi-arity-relations"

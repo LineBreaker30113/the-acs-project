@@ -4,25 +4,16 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.halim.acs.ACS_Actor;
 import org.halim.acs.ACS_Core;
 import org.halim.acs.ACS_Journal;
-import org.halim.acs.arity.sets.IdentitiesSet;
-import org.halim.acse.arity.sets.IdentitiesSetRoaring;
 
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 
-import static org.halim.acse.structure.UnaryRestrictions.*;
-import static org.halim.acse.structure.BinaryRestrictions.*;
+import static org.halim.acs.structure.UnaryRestrictions.*;
+import static org.halim.acs.structure.BinaryRestrictions.*;
 
 
 /**
@@ -43,8 +34,6 @@ public abstract class NodeEdgeGraphBase extends NodeEdgeBase {
 
 /** The edge (edge, first node, second node); the negative triple removes it. */
 static final byte LINK = 1;
-/** Each request's method name by its code, read once from the marks, for the queries a read records. */
-static final String[] REQUESTS = ACS_Actor.requestNames(NodeEdgeGraphBase.class);
 
 final ACS_Core core;
 final ACS_Journal journal;
@@ -430,35 +419,22 @@ public void copyPrimariesInto(int edge, int[] dest, int offset) {
 }
 
 
-/** An edge from the parent, as {@link #ensureEdge} makes it, when none joins the two; false when one does. */
-@Override
-public boolean addParent(int element, int parent, String comment) {
-	requireLive(element);
-	requireLive(parent);
-	if(edgeOf(parent, element) >= 0) { return false; }
-	ensureEdge(parent, element, comment);
-	return true;
-}
-
-/** Every edge from the parent, as {@link #breakEdges} removes them. */
-@Override
-public boolean removeParent(int element, int parent, String comment) { return breakEdges(parent, element, comment); }
 
 /**
- * The edges from every other parent removed, then one from {@code parent} made unless one is there, as one
+ * The edges from every other predecessor removed, then one from {@code predecessor} made unless one is there, as one
  * request: the new edge is checked after the removals, so what breaks only midway is no refusal.
  * */
 @Override
-public boolean setParent(int element, int parent, String comment) {
+public boolean setPredecessor(int element, int predecessor, String comment) {
 	requireLive(element);
-	requireLive(parent);
-	int[] parents = firstsOf(element);
-	boolean held = Arrays.binarySearch(parents, parent) >= 0;
-	if(held && parents.length == 1) { return false; }
-	int request = journal.beginRecordingActivity(this, "setParent", params, comment);
+	requireLive(predecessor);
+	int[] predecessors = predecessorsOf(element);
+	boolean held = Arrays.binarySearch(predecessors, predecessor) >= 0;
+	if(held && predecessors.length == 1) { return false; }
+	int request = journal.beginRecordingActivity(this, "setPredecessor", params, comment);
 	try {
-		for(int other : parents) { if(other != parent) { breakEdges(other, element, null); } }
-		if(!held) { ensureEdge(parent, element, null); }
+		for(int other : predecessors) { if(other != predecessor) { breakEdges(other, element, null); } }
+		if(!held) { ensureEdge(predecessor, element, null); }
 	} catch(RuntimeException | Error e) {
 		abort(request);
 		throw e;
@@ -468,36 +444,33 @@ public boolean setParent(int element, int parent, String comment) {
 }
 
 @Override
-public int parentCount(int element) { return firstCount(element); }
+public int predecessorCount(int element) { return firstCount(element); }
 
 @Override
-public int childCount(int element) { return lastCount(element); }
+public int successorCount(int element) { return lastCount(element); }
 
 /** Ascending, each once. */
 @Override
-public void copyParentsInto(int element, int[] dest, int offset) {
-	int[] parents = firstsOf(element);
-	System.arraycopy(parents, 0, dest, offset, parents.length);
+public void copyPredecessorsInto(int element, int[] dest, int offset) {
+	int[] predecessors = predecessorsOf(element);
+	System.arraycopy(predecessors, 0, dest, offset, predecessors.length);
 }
 
 /** Ascending, each once. */
 @Override
-public void copyChildrenInto(int element, int[] dest, int offset) {
-	int[] children = lastsOf(element);
-	System.arraycopy(children, 0, dest, offset, children.length);
+public void copySuccessorsInto(int element, int[] dest, int offset) {
+	int[] successors = successorsOf(element);
+	System.arraycopy(successors, 0, dest, offset, successors.length);
 }
 
 
 /** One more edge from {@code first} to {@code last}, as {@link #ensureEdge} makes it; false when, without parallel edges, one is there already. */
-@Override
 public boolean relateToUnary(int first, int last, String comment) {
 	if(!allowsParallelLinks && edgeOf(first, last) >= 0) { return false; }
 	ensureEdge(first, last, comment);
 	return true;
 }
 
-/** One edge fewer from {@code first} to {@code last}, the lowest, removed through the core; false when there is none. */
-@Override
 public boolean unrelateFromUnary(int first, int last, String comment) {
 	int edge = edgeOf(first, last);
 	if(edge < 0) { return false; }
@@ -511,20 +484,15 @@ public boolean unrelateFromUnary(int first, int last, String comment) {
 	return true;
 }
 
-@Override
 public boolean isRelatedToUnary(int first, int last) { return edgeOf(first, last) >= 0; }
 
-/** The nodes {@code first} has an edge to, each once and ascending; on a directionless graph, every node it shares an edge with. */
-@Override
-public int[] lastsOf(int first) { return across(first, false); }
+public int[] successorsOf(int first) { return across(first, false); }
 
-/** The nodes with an edge to {@code last}, each once and ascending; on a directionless graph, as {@link #lastsOf}. */
-@Override
-public int[] firstsOf(int last) { return across(last, true); }
+public int[] predecessorsOf(int last) { return across(last, true); }
 
-public int lastCount(int first) { return lastsOf(first).length; }
+public int lastCount(int first) { return successorsOf(first).length; }
 
-public int firstCount(int last) { return firstsOf(last).length; }
+public int firstCount(int last) { return predecessorsOf(last).length; }
 
 /** The other node of each of the node's edges, those ending at it when {@code up} on a directed graph, those starting at it otherwise. */
 int[] across(int node, boolean up) {
@@ -562,16 +530,16 @@ public int[] getPrimariesOf(int cluster) {
 
 
 /**
- * What {@code first} has an edge to becomes {@code lasts}, a repeat counting once: the edges to every other
+ * What {@code first} has an edge to becomes {@code successors}, a repeat counting once: the edges to every other
  * node removed through the core, then one made to each new one, as one request, so each new edge is
  * checked after the removals and nothing is refused for what breaks only midway. False when nothing changes.
  * */
 @Override
-public boolean setLasts(int first, int[] lasts, String comment) { return setAcross(first, lasts, false, comment); }
+public boolean setSuccessors(int first, int[] successors, String comment) { return setAcross(first, successors, false, comment); }
 
-/** What has an edge to {@code last} becomes {@code firsts}, as {@link #setLasts} sets it. */
+/** What has an edge to {@code last} becomes {@code predecessors}, as {@link #setSuccessors} sets it. */
 @Override
-public boolean setFirsts(int last, int[] firsts, String comment) { return setAcross(last, firsts, true, comment); }
+public boolean setPredecessors(int last, int[] predecessors, String comment) { return setAcross(last, predecessors, true, comment); }
 
 boolean setAcross(int node, int[] wanted, boolean up, String comment) {
 	requireLive(node);
@@ -579,7 +547,7 @@ boolean setAcross(int node, int[] wanted, boolean up, String comment) {
 	int[] held = across(node, up);
 	IntOpenHashSet had = new IntOpenHashSet(held);
 	if(kept.equals(had)) { return false; }
-	int request = journal.beginRecordingActivity(this, up ? "setFirsts" : "setLasts", params, comment);
+	int request = journal.beginRecordingActivity(this, up ? "setPredecessors" : "setSuccessors", params, comment);
 	try {
 		for(int other : held) {
 			if(!kept.contains(other)) { breakEdges(up ? other : node, up ? node : other, null); }
@@ -610,246 +578,12 @@ public boolean setPrimariesOf(int cluster, int[] elements, String comment) {
 }
 
 
-/** {@link #depth}, marked here so it is a request. */
+
+
+
+
+
 @Override
-public int depth(int element) { return super.depth(element); }
-
-/** {@link #distance}, marked here so it is a request. */
-@Override
-public int distance(int element, int other) { return super.distance(element, other); }
-
-/** {@link #pathLength}, marked here so it is a request. */
-@Override
-public int pathLength(int from, int to) { return super.pathLength(from, to); }
-
-/** {@link #writeAncestors} as an int[], for the outside: no request takes a stream. */
-@Override
-public int[] ancestorsOf(int element) { return listed(dos -> writeAncestors(element, dos)); }
-
-/** {@link #writeDescendants} as an int[]. */
-@Override
-public int[] descendantsOf(int element) { return listed(dos -> writeDescendants(element, dos)); }
-
-/** {@link #writeNearestCommonAncestors} as an int[]. */
-@Override
-public int[] nearestCommonAncestorsOf(int element, int other) { return listed(dos -> writeNearestCommonAncestors(element, other, dos)); }
-
-/** {@link #writeNearestCommonDescendants} as an int[]. */
-@Override
-public int[] nearestCommonDescendantsOf(int element, int other) { return listed(dos -> writeNearestCommonDescendants(element, other, dos)); }
-
-/** {@link #writeTopologicalOrder} over the graph {@code elements} make, given as ints since no request takes a set. */
-@Override
-public int[] topologicalOrderAmong(int[] elements) { return listed(dos -> writeTopologicalOrder(setOf(elements), dos)); }
-
-/** {@link #hasCycle} among {@code elements}. */
-@Override
-public boolean hasCycleAmong(int[] elements) { return hasCycle(setOf(elements)); }
-
-/** {@link #writeRoots} among {@code elements}, as an int[]. */
-@Override
-public int[] rootsAmong(int[] elements) { return listed(dos -> writeRoots(setOf(elements), dos)); }
-
-/** {@link #writeLeaves} among {@code elements}, as an int[]. */
-@Override
-public int[] leavesAmong(int[] elements) { return listed(dos -> writeLeaves(setOf(elements), dos)); }
-
-/** {@link #writeParts} among {@code elements}, as one int[] in its layout: the part count, then each part's size and elements. */
-@Override
-public int[] partsAmong(int[] elements) { return written(dos -> writeParts(setOf(elements), dos)); }
-
-/** {@link #connectivity} among {@code elements}. */
-@Override
-public double connectivityAmong(int[] elements) { return connectivity(setOf(elements)); }
-
-/** {@link #reachesAll} among {@code elements}. */
-@Override
-public boolean reachesAllAmong(int[] elements) { return reachesAll(setOf(elements)); }
-
-/** {@link #connectsAll} among {@code elements}. */
-@Override
-public boolean connectsAllAmong(int[] elements) { return connectsAll(setOf(elements)); }
-
-/** What an analysis writes to a stream. */
-interface Writing { void to(DataOutputStream dos) throws IOException; }
-
-/** Every int the analysis writes, in order. */
-static int[] written(Writing writing) {
-	ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-	try { writing.to(new DataOutputStream(bytes)); }
-	catch(IOException e) { throw new UncheckedIOException(e); }
-	IntBuffer ints = ByteBuffer.wrap(bytes.toByteArray()).asIntBuffer();
-	int[] all = new int[ints.remaining()];
-	ints.get(all);
-	return all;
-}
-
-/** The elements of the one int[] the analysis writes, its length left out. */
-static int[] listed(Writing writing) {
-	int[] all = written(writing);
-	return Arrays.copyOfRange(all, 1, all.length);
-}
-
-/** The ints as a set, which the analyses take; an identity is registered once however often given. */
-static IdentitiesSet setOf(int[] elements) {
-	IdentitiesSetRoaring set = new IdentitiesSetRoaring();
-	for(int element : elements) { set.register(element); }
-	return set;
-}
-
-/**
- * The requests, by the codes {@link NodeEdgeBase} marks: each reads its inputs, calls the public method,
- * which keeps its checks, and writes the result. A read is recorded as a query: its method's name and
- * inputs, then its answer, or its refusal; a list is answered by its length.
- * */
-@Override
-public boolean request(DataInputStream parameters, DataOutputStream returns) throws IOException {
-	int code = parameters.readInt();
-	String query = null;
-	try {
-		switch(code) {
-			case 0 -> returns.writeBoolean(relateToBinary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 1 -> returns.writeBoolean(unrelateFromBinary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 3 -> returns.writeBoolean(setComplement(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 4 -> returns.writeBoolean(setPrimary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 5 -> returns.writeBoolean(setComplementsOf(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 6 -> returns.writeBoolean(setPrimariesOf(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 7 -> returns.writeBoolean(moveBinary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 8 -> returns.writeBoolean(mergeBinary(parameters.readInt(), parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 13 -> returns.writeBoolean(relateToUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 14 -> returns.writeBoolean(unrelateFromUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 16 -> returns.writeBoolean(addParent(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 17 -> returns.writeBoolean(removeParent(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 18 -> returns.writeBoolean(setParent(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 19 -> returns.writeBoolean(setLasts(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 20 -> returns.writeBoolean(setFirsts(parameters.readInt(), readInts(parameters), ACS_Actor.readString(parameters)));
-			case 21 -> returns.writeBoolean(moveUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 22 -> returns.writeBoolean(mergeUnary(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 41 -> returns.writeInt(ensureEdge(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 42 -> returns.writeBoolean(breakEdges(parameters.readInt(), parameters.readInt(), ACS_Actor.readString(parameters)));
-			case 2, 15, 25 -> {
-				int identity = parameters.readInt(), other = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ", " + other + ")";
-				boolean value = switch(code) {
-					case 2 -> isRelatedToBinary(identity, other);
-					case 15 -> isRelatedToUnary(identity, other);
-					default -> reaches(identity, other);
-				};
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 9, 10, 28, 44, 45 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int value = switch(code) {
-					case 9 -> complementCount(identity);
-					case 10 -> primaryCount(identity);
-					case 28 -> depth(identity);
-					case 44 -> firstNodeOf(identity);
-					default -> secondNodeOf(identity);
-				};
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 31, 32, 43 -> {
-				int identity = parameters.readInt(), other = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ", " + other + ")";
-				int value = switch(code) {
-					case 31 -> distance(identity, other);
-					case 32 -> pathLength(identity, other);
-					default -> edgeOf(identity, other);
-				};
-				recordQuery(query, Integer.toString(value));
-				returns.writeInt(value);
-			}
-			case 11, 12, 23, 24, 26, 27, 46, 47, 48 -> {
-				int identity = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ")";
-				int[] value = switch(code) {
-					case 11 -> getComplementsOf(identity);
-					case 12 -> getPrimariesOf(identity);
-					case 23 -> lastsOf(identity);
-					case 24 -> firstsOf(identity);
-					case 26 -> ancestorsOf(identity);
-					case 27 -> descendantsOf(identity);
-					case 46 -> edgesOf(identity);
-					case 47 -> outEdgesOf(identity);
-					default -> inEdgesOf(identity);
-				};
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 29, 30 -> {
-				int identity = parameters.readInt(), other = parameters.readInt();
-				query = REQUESTS[code] + "(" + identity + ", " + other + ")";
-				int[] value = code == 29 ? nearestCommonAncestorsOf(identity, other) : nearestCommonDescendantsOf(identity, other);
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 33, 35, 36, 37 -> {
-				int[] elements = readInts(parameters);
-				query = REQUESTS[code] + "(int[" + elements.length + "])";
-				int[] value = switch(code) {
-					case 33 -> topologicalOrderAmong(elements);
-					case 35 -> rootsAmong(elements);
-					case 36 -> leavesAmong(elements);
-					default -> partsAmong(elements);
-				};
-				recordQuery(query, "int[" + value.length + "]");
-				writeInts(returns, value);
-			}
-			case 34, 39, 40 -> {
-				int[] elements = readInts(parameters);
-				query = REQUESTS[code] + "(int[" + elements.length + "])";
-				boolean value = switch(code) {
-					case 34 -> hasCycleAmong(elements);
-					case 39 -> reachesAllAmong(elements);
-					default -> connectsAllAmong(elements);
-				};
-				recordQuery(query, Boolean.toString(value));
-				returns.writeBoolean(value);
-			}
-			case 38 -> {
-				int[] elements = readInts(parameters);
-				query = REQUESTS[code] + "(int[" + elements.length + "])";
-				double value = connectivityAmong(elements);
-				recordQuery(query, Double.toString(value));
-				returns.writeDouble(value);
-			}
-			default -> throw new IllegalArgumentException(getClass().getName() + " has no request " + code);
-		}
-	} catch(RuntimeException e) {
-		if(query != null) { recordQuery(query, "refused: " + reason(e)); }
-		ACS_Actor.writeString(returns, reason(e));
-		return false;
-	}
-	return true;
-}
-
-
-void recordQuery(String request, String response) {
-	journal.recordQueryRequest(request);
-	journal.recordQueryResponse(response);
-}
-
-/** What a refused request writes back: the error's message, or its class when it has none. */
-static String reason(RuntimeException e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getName(); }
-
-
-/** An int[] on the wire: its length, then its elements. */
-static void writeInts(DataOutputStream dos, int[] ints) throws IOException {
-	dos.writeInt(ints.length);
-	for(int value : ints) { dos.writeInt(value); }
-}
-
-/** An int[] as {@link #writeInts} writes it, its elements taken as they arrive rather than the length allocated first, so a garbled length ends in an EOFException. */
-static int[] readInts(DataInputStream dis) throws IOException {
-	int length = dis.readInt();
-	if(length < 0) { throw new IOException("int[] length " + length); }
-	IntArrayList ints = new IntArrayList();
-	for(int i = 0; i < length; i++) { ints.add(dis.readInt()); }
-	return ints.toIntArray();
-}
-
+public ACS_Journal getJournal() { return journal; }
 
 }
