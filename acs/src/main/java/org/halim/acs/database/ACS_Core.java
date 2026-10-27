@@ -21,7 +21,7 @@ void addArity(String description, String comment);
 
 void addArity(ACS_ArityComponentBase acseArityComponent, String description, String comment);
 
-/** Delegated to the arity, so only an {@link org.halim.acse.arity.ACSE_ComposableArityCatalog} takes one; returns the row's slot. */
+/** Delegated to the arity, so only an {@code ACSE_ComposableArityCatalog} takes one; returns the row's slot. */
 int addCatalogRow(int arity, ACS_ArityCatalogRowBase row, String description, String comment);
 
 /** Adds a catalog row by its full class name, built by reflection through the core's class loader; returns the row's slot. */

@@ -21,7 +21,7 @@ import java.util.List;
  * concept is nothing but repeated intersection, so an int set without these cannot participate.
  * <p>
  * Everything below {@link #contains} is a default written once against {@code contains} and
- * {@code get}, so a new representation only has to supply those two to gain the whole algebra.
+ * {@link #identityAt}, so a new representation only has to supply those two to gain the whole algebra.
  * A representation that can do better than the generic path - a bitmap intersecting word by word,
  * a complement form reasoning over its holes - should override.
  * */
@@ -138,8 +138,8 @@ default boolean containsAll(IdentitiesSet other) {
  * The same identities as a Roaring bitmap, which is the form the compressed algebra works on.
  * <p>
  * The generic path here materialises: it walks this set and adds every identity, so it costs one
- * pass and one bitmap. That is the price of crossing representations, and it is why the algebra
- * methods above test for a shared representation first rather than converting.
+ * pass and one bitmap. That is the price of crossing representations, and it is why a representation
+ * overriding the algebra above tests for a shared representation first rather than converting.
  * <p>
  * A set that already <em>is</em> a bitmap returns its own storage rather than a copy - the
  * conversion is free precisely because there is nothing to convert. So the result is not guaranteed

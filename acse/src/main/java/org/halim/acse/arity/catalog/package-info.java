@@ -32,8 +32,8 @@
  * {@code IntSizedIntegerValueCatalog} exists to carry "these values fit an int" in the type rather
  * than in a comment: on it neither the int view nor the double view can refuse a value, where on the
  * wide form both are conversions that may. Floating narrowing rounds instead of wrapping, so a float
- * catalog accepts a double and rounds it - scores, weights and coordinates are its case; exact sums
- * are not.
+ * catalog accepts a double and rounds it, keeping about seven decimal digits of a double's sixteen -
+ * scores, weights and coordinates are its case; exact sums are not.
  * <p>
  * <b>Lifecycle is the only type-free part of the contract</b>, and that is exactly why it is on the
  * base. An arity mints an identity once and every catalog attached to it has to follow, without the

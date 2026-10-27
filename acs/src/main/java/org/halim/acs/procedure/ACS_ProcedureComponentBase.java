@@ -22,7 +22,7 @@ import java.io.IOException;
  * arities as its range.
  * <p>
  * Each answer is a count, then that many entries. An entry is the actor's type and index as a request's
- * frame addresses it (an arity row is 9, a structure 2), the request's code, then the imv it touches as an
+ * frame addresses it (a row is 4, a structure 5), the request's code, then the imv it touches as an
  * array, in the type the request takes its identities in. The imv, not the iui, since it is stable.
  * */
 public interface ACS_ProcedureComponentBase extends ACS_Actor {
