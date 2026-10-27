@@ -52,6 +52,9 @@
     (`childOf`, `descendantOf`, …). Interpreting leaves (`namedLike`) stay the client's.
   - Author: We can ship many leaves, the "equals" for integer like ones or "near" for floating types are cool. Is there a concern with making "String" filtering ways provided by the engine?
   Section: Filtering
+  Answer: I plan on making the filter, which will help the procedure instances, which will also have regex like things to process strings. *(2026-10-27)*
+  Answer: About the filter, it is reasoning, the procedures can use and create filters, and they will come with many base instances like: logical (AND, OR), numerical (lessThan), structural (descendantOf). *(2026-10-27)*
+  Answer: So filters are three types: logical, arity (last response numerical), structure. But the arity based ones being able accept mathematical functions would been nice. [The function takes] one catalog value. *(2026-10-27)*
 
 - **How to restructure AND / OR / NOT trees for the fastest evaluation?**
   - Author: "Say we give the client the "AND", "OR", "NOT": can we find a way to better restructure
