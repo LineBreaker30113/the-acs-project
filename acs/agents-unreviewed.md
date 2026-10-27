@@ -27,6 +27,25 @@
   Labels not checked against every folder's CLAUDE.md.
   Section: Architecture
 
+- Verbatim: The mathematics represented as interfaces for database implementation of the Polyadic Formal
+  Concept Analysis. Check the studyTopic.md [`acs/structure/studyTopic.md`]. The Arity is the table of
+  records of the database or table of structure nodes to build a structure above and reason about the
+  records. The CatalogRow is not an actor of the ACS itself as it meant to be only a section of Arity,
+  not an object on its own, but it is an actor of the database since it can have hyper parameters, for
+  now we believe those hyper parameters are not mutable and do not need to be, so it won't be an actor,
+  but its constructor requires a DIS to read its hyper parameters. The Structure is a list of relation
+  among tables of any numbers, they can cause table as a reasoning product, check the theorems.md
+  [`acs/structure/theorems.md`]. They may have restrictions. The Procedure is a well defined action on
+  the database, defined so clear automatically be reasoned about. The Database ("persistence"
+  subpackage, rename to "database") is the representation of the mathematics on the computer, must have
+  a persistence, management (core), journal, and optionally a descriptor (for agents). It must not
+  implement the interfaces. *(2026-10-27)*
+  Meaning: acs's purpose and its five parts; the `persistence` subpackage is renamed `database`, not
+  applied yet; acs holds no implementation of its interfaces.
+  Commons: (root 9, 54, 56) arity, structure, procedure; (root 28) ACS is only a mathematical entity.
+  Labels not checked against every folder's CLAUDE.md.
+  Section: Architecture
+
 # Questions
 - **Which data-dependent filters does the engine ship?**
   - Claude: structural leaves — catalog comparisons (`eq`, `lt`, `between`, …) and reachability

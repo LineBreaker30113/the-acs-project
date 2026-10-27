@@ -29,3 +29,11 @@
   Complements: the Kernel entry above, its type ACS-City.
   Labels not checked against every folder's CLAUDE.md.
   Section: Views
+
+- Verbatim: Writing those takes too long and I guess you can guess the rest, right? [...] yes, record
+  them and commit. *(2026-10-27)*
+  Meaning: acs-gui uses acsess only, run like a terminal, one refresh being one run (root 30); it must
+  not reach acsed or acse around acsess, must not hold data beyond the queried rows it keeps in memory
+  (root 72), and a view must not take more than one goal (acs-gui 10).
+  Labels not checked against every folder's CLAUDE.md.
+  Section: Views
