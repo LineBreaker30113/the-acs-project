@@ -2,8 +2,8 @@ package org.halim.acse.structure.unary;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.arity.sets.IdentitiesSet;
 import org.halim.acs.structure.ACS_UnaryStructure;
 import org.halim.acs.structure.UnaryRestrictions;

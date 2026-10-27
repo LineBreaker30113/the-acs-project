@@ -1,8 +1,8 @@
 package org.halim.acse.arity.catalog.memory;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.arity.catalog.IntegerValueCatalog;
 
 import java.io.DataInputStream;

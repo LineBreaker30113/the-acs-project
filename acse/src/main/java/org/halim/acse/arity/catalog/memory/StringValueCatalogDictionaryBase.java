@@ -1,7 +1,7 @@
 package org.halim.acse.arity.catalog.memory;
 
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import org.halim.acs.persistence.ACS_PersistenceManager;
+import org.halim.acs.database.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.LongChunkInt;
 import org.halim.acs.arity.catalog.StringValueCatalog.CodedStringValueCatalog;
 

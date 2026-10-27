@@ -1,6 +1,7 @@
 package org.halim.acse.structure.binary.node_edge;
 
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Requestable;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.structure.ACS_BinaryStructure;
 import org.halim.acs.structure.ACS_UnaryStructure;
 import org.halim.acs.structure.UnaryRestrictions;
@@ -133,6 +134,6 @@ public abstract class NodeEdgeBase implements ACS_BinaryStructure {
 		@Override public boolean saveTo(DataOutputStream dos) throws IOException { return NodeEdgeBase.this.saveTo(dos); }
 		@Override public boolean forget(int arity, int identity) { return NodeEdgeBase.this.forget(arity, identity); }
 		@Override public void doTraceableStep(byte stepPair, int[] params, int index) { NodeEdgeBase.this.doTraceableStep(stepPair, params, index); }
-		@Override public org.halim.acs.ACS_Journal getJournal() { return NodeEdgeBase.this.getJournal(); }
+		@Override public ACS_Journal getJournal() { return NodeEdgeBase.this.getJournal(); }
 	}
 }

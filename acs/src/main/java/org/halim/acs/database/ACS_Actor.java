@@ -1,4 +1,4 @@
-package org.halim.acs;
+package org.halim.acs.database;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

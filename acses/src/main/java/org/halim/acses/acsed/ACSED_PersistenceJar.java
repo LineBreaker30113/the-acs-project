@@ -1,7 +1,7 @@
 package org.halim.acses.acsed;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.halim.acs.ACS_Core;
+import org.halim.acs.database.ACS_Core;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;

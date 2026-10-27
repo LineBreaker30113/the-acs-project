@@ -1,6 +1,6 @@
 package org.halim.acs.structure;
 
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Requestable;
 
 /**
  * The most formal quaternary structure: each identity of the <em>unit</em> arity, at index 3, relates

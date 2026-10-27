@@ -1,7 +1,7 @@
 package org.halim.acse.arity.catalog.file;
 
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.arity.catalog.FloatingValueCatalog;
 import org.halim.acs.arity.catalog.LongChunkInt;
 

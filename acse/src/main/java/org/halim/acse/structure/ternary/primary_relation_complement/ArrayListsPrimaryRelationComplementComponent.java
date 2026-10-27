@@ -2,8 +2,8 @@ package org.halim.acse.structure.ternary.primary_relation_complement;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.structure.ACS_TernaryStructure;
 
 import java.io.DataInputStream;

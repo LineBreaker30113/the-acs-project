@@ -1,10 +1,10 @@
-package org.halim.acse;
+package org.halim.acse.database;
 
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Journal;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import org.halim.acs.persistence.ACS_DescriptionManager;
-import org.halim.acs.persistence.ACS_PersistenceManager;
+import org.halim.acs.database.ACS_DescriptionManager;
+import org.halim.acs.database.ACS_PersistenceManager;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

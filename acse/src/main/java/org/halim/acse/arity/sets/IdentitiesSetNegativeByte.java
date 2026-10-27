@@ -1,7 +1,7 @@
 package org.halim.acse.arity.sets;
 
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 import org.halim.acs.arity.sets.IdentitiesSet;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;

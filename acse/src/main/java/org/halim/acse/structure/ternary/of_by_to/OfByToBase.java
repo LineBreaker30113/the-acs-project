@@ -1,7 +1,7 @@
 package org.halim.acse.structure.ternary.of_by_to;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Requestable;
 import org.halim.acs.structure.ACS_TernaryStructure;
 
 import java.io.DataOutputStream;

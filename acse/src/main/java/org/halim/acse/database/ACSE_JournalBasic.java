@@ -1,10 +1,10 @@
-package org.halim.acse;
+package org.halim.acse.database;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.halim.acs.ACS_Actor;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Actor;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
+import org.halim.acs.database.ACS_Requestable;
 
 import java.io.DataOutputStream;
 import java.io.IOException;

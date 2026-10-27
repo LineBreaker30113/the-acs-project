@@ -1,9 +1,9 @@
 package org.halim.acse.arity.catalog.file;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
-import org.halim.acs.persistence.ACS_PersistenceManager;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
+import org.halim.acs.database.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.StringValueCatalog;
 import org.halim.acse.arity.catalog.memory.IntegerValueCatalogArraysInt;
 

@@ -1,6 +1,6 @@
 package org.halim.acse.arity.catalog.file;
 
-import org.halim.acs.persistence.ACS_PersistenceManager;
+import org.halim.acs.database.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.LongChunkInt;
 import org.halim.acse.arity.catalog.memory.ChunkedCatalogBase;
 

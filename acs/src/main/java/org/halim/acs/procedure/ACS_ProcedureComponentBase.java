@@ -1,8 +1,8 @@
 package org.halim.acs.procedure;
 
 
-import org.halim.acs.ACS_Actor;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Actor;
+import org.halim.acs.database.ACS_Requestable;
 
 import java.io.DataOutputStream;
 import java.io.IOException;

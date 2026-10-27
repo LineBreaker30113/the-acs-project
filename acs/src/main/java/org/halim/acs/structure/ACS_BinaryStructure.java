@@ -2,7 +2,7 @@ package org.halim.acs.structure;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Requestable;
 
 /** Formal binary structure: connector between primary arity (0) and complement arity (1). */
 public interface ACS_BinaryStructure extends ACS_StructureBase {

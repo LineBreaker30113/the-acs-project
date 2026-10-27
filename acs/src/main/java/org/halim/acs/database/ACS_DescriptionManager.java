@@ -1,6 +1,4 @@
-package org.halim.acs.persistence;
-
-import org.halim.acs.ACS_Actor;
+package org.halim.acs.database;
 
 
 public interface ACS_DescriptionManager extends ACS_Actor {

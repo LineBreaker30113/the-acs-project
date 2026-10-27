@@ -1,7 +1,7 @@
 package org.halim.acs.structure;
 
-import org.halim.acs.ACS_Actor;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Actor;
+import org.halim.acs.database.ACS_Requestable;
 
 import java.io.DataOutputStream;
 import java.io.IOException;

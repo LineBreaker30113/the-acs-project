@@ -1,8 +1,4 @@
-package org.halim.acs.persistence;
-
-import org.halim.acs.ACS_Actor;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+package org.halim.acs.database;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;

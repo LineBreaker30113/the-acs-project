@@ -4,8 +4,8 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Journal;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Journal;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static org.halim.acs.structure.UnaryRestrictions.*;
-import static org.halim.acs.structure.BinaryRestrictions.*;
 
 
 /**

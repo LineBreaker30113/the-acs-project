@@ -1,9 +1,9 @@
 package org.halim.acs.arity;
 
-import org.halim.acs.ACS_Actor;
-import org.halim.acs.ACS_Core;
-import org.halim.acs.ACS_Requestable;
-import org.halim.acs.persistence.ACS_PersistenceManager;
+import org.halim.acs.database.ACS_Actor;
+import org.halim.acs.database.ACS_Core;
+import org.halim.acs.database.ACS_Requestable;
+import org.halim.acs.database.ACS_PersistenceManager;
 import org.halim.acs.arity.catalog.ACS_ArityCatalogRowBase;
 import org.halim.acs.arity.sets.IdentitiesSet;
 

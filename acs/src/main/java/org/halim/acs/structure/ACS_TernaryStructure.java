@@ -1,7 +1,7 @@
 package org.halim.acs.structure;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.halim.acs.ACS_Requestable;
+import org.halim.acs.database.ACS_Requestable;
 
 /**
  * The most formal ternary structure, primary-relation-complement: each identity of the <em>relation</em>
