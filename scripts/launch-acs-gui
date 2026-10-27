@@ -1,0 +1,4 @@
+#!/bin/sh
+# Starts acs-gui from the project root, as last built; arguments pass through, such as acsessPath=<path>.
+cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
+exec java -jar acs-gui/target/acs-gui-*-jar-with-dependencies.jar "$@"

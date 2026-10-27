@@ -1,0 +1,6 @@
+#!/bin/sh
+# Builds acs-gui and the acsess it runs, then starts it; arguments pass through to launch-acs-gui.
+here=$(dirname "$(readlink -f "$0")")
+cd "$here/.." || exit 1
+mvn -q -pl acses,acs-gui -am package || exit 1
+exec "$here/launch-acs-gui" "$@"

@@ -31,6 +31,17 @@ and with high expressiveness, because of the contracts, so the result can be rea
 mathematically. In short: FCA4J (a Java library for formal concept analysis), but as a database and
 multi-arity. An "N arity structure builder", or "Structure of Arrays" builder.
 
+### Term Mapping Across Paradigms
+
+| Paradigm / Field | Objects & Data (`arity` / `sort`) | Relations & Constraints (`structure` / `topology`) | Behaviors & Transformations (`procedure` / `function`) |
+| :--- | :--- | :--- | :--- |
+| **ACS Architecture** | **Arity** (catalog rows, dense integer IDs) | **Structure** (unary, binary, $N$-ary; self-enforcing rules) | **Procedure** (formally declared state changes) |
+| **Mathematical Logic** | **Sort** (domain of discourse $S_i$) | **Relation / Axiomatic Invariant** ($R \subseteq S_1 \times \dots \times S_n$) | **Operator / Transition** ($\tau: \mathcal{S} \to \mathcal{S}'$) |
+| **Polyadic FCA** | **Object / Attribute Dimension** (Context Domain $G_i$) | **$n$-adic Incidence / Concept Lattice** ($I \subseteq G_1 \times \dots \times G_n$) | **Closure Operator / Implication Rule** |
+| **Relational Databases** | **Table / Entity Relation** | **Foreign Key / Join Table / Integrity Constraint** | **Stored Procedure / Transaction** |
+| **Entity Component System (ECS)**| **Entity Type + Component** (Columns/SoA) | **Relational Component / Archetype Graph** | **System** |
+| **Neuro-Symbolic / RAG** | **Factual Units / Paragraphs / Tokens** | **Knowledge Topology / Concept Neighborhood** | **Agent Tool / Ingestion & Inference Step** |
+
 ## Goal
 
 An ACS database is managed with commands. ACSES is two programs: `acsess`, the command line, and

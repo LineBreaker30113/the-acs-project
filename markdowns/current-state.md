@@ -58,14 +58,12 @@ decided to be done and urgent.")* The last five, and the reading below, were con
 
 - DAG tests in `acse/src/test/` (the author writes them): encoding transitions, root list after every
   phase, cycle refusal, slot reuse, reduction preserving reachability.
-- [The `OE_` prefix, `OntologyEngineCore` and the package `org.halim.ontology`:] now the name is
-  "ACS" [now `acse`], replace them with "ACS" [`acse`, except the `OE_` prefix, which becomes `ACS_`:
-  see Layers and names, 2026-10-14]. — `OE_` is gone. Done for the live work, 2026-10-18;
-  `OntologyEngineCore.java` and `org.halim.ontology` remain in `deprecatedCode/`.
-- [The `Module` at the end of `SetHierarchyDirectedAcyclicIntGraphModule`:] replace with
-  `Component`. — Still so named, in `structurer_depr/`.
-- [Naming the judgment-call existence method so it looks deliberate, like `identityAtUnchecked`:]
-  this naming convention is good, but out of scope; this is boilerplate polishing. — Not named yet.
+- Tests for the catalog row implementations in `acse/arity/catalog/`. *(Author, 2026-10-27: "we need
+  test for those implementations")*
+- An abstract class for the calculated rows (`FilePathCatalogRow`, `HashedFilePathCatalogRow`), so a new
+  one only supplies its values. *(Author, 2026-10-27: "a way to formalize the calculated, I mean an
+  abstract class that makes it easier to produce calculated values")* What varies between calculated
+  rows is not decided.
 - Test the README's "2^28 files of records … a few GiB" claim; nothing measures it. *(Author: "Record
   it, we need to test it.")*
 - Later: the procedure contract, and more structure components, the cartesian (ternary) and the
@@ -78,29 +76,6 @@ decided to be done and urgent.")* The last five, and the reading below, were con
 
 Items of the handoff above found done, kept as the record.
 
-- A "String" catalog type, a string subversion of the Object one. Its allowed types are spread over
-  the type constants of `ACS_ArityComponentBase` (copied in `ACS_ArityCatalogRowBase`), `typeName`,
-  both bases' default accessors, and the journaled writes' type check and `bitsOf` in
-  `ACSE_ComposableArityCatalog`. *(Author, 2026-10-14: "Right now we have object as a valid catalog
-  option, we still need to make a string subversion of it. The problem with it is the allowed types
-  of those catalogs are not in one place.")* — Done: `StringValueCatalog` in `acs`, its rows in `acse`, in `c0e26c3` (2026-10-19); checked
-  2026-10-21.
-- Move the decisions into the Citable (`CLAUDE.md` → Decisions): `decisions.md` and its topic files
-  joined into `citable.md`, words unchanged; `inferred-decisions.md` joined in, its Unreviewed at its
-  end as Unconfirmed; summaries cut to about a quarter, plus `summaries/overview.md`; the summary check
-  run. Where the handoff goes is the author's call. — Done in `f52b823` (2026-10-21), then replaced
-  by the three-file migration in `3c57dce` (2026-10-22); checked 2026-10-23.
-
-## Former handoff — 2026-09-18
-
-Kept as the record of where that session left things. The live one is under Handoff — decided, not
-done yet, above.
-
-- The urgent code work: `inferred-decisions.md` → Urgent work (in git at `6f32a25`), not yet reviewed.
-- The author reviews the Unreviewed entries, the 19 term definitions among them, and decides the old
-  plan's positions at the end of `questions.md`.
-- `reference/` holds `pre-purge-backup.bundle` and `msgfilter.py`, both gitignored and both deletable
-  once the history rewrite is trusted.
 
 Repository state, 2026-09-18: committed through `10aa948`, working tree clean, no remote, nothing
 pushed. History was rewritten this day — the study inventory and a third-party paper were purged from

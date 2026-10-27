@@ -7,14 +7,15 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="acs" />
-        <module name="acs-alhikmet" />
-        <module name="acsah-viewer" />
         <module name="acse" />
+        <module name="acs-gui" />
+        <module name="acs-alhikmet" />
         <module name="acses" />
-        <module name="acsess-gui" />
+        <module name="acsah-viewer" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="acsess-gui" target="21" />
       <module name="ontodirectory" target="21" />
     </bytecodeTargetLevel>
   </component>
@@ -22,10 +23,10 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="acs" options="-parameters" />
       <module name="acs-alhikmet" options="-parameters" />
+      <module name="acs-gui" options="-parameters" />
       <module name="acsah-viewer" options="-parameters" />
       <module name="acse" options="-parameters" />
       <module name="acses" options="-parameters" />
-      <module name="acsess-gui" options="-parameters" />
       <module name="ontodirectory" options="-parameters" />
       <module name="the-acs-project" options="-parameters" />
     </option>

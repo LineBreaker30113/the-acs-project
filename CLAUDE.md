@@ -54,8 +54,8 @@ boilerplate."
   word twice on the same kind of answer becomes a line in this file.
 - **No reports, briefs, or plans** unless a file is explicitly requested.
 - **Use the author's words.** Answer in the vocabulary the author already uses. A term they do not
-  use is defined where it first appears — in answers, and in `questions.md` and
-  the `agents-unreviewed.md` entries too. A question that cannot be asked without jargon is not ready to be
+  use is defined where it first appears — in answers, and in the `agents-unreviewed.md` entries and
+  questions too. A question that cannot be asked without jargon is not ready to be
   asked; explain it first.
 - **One question, one answer.** Do not anticipate the next three questions and pre-answer them, and
   do not append an architecture, a build order, or a verification section to a factual answer.
@@ -76,8 +76,10 @@ markdown file without being asked.
   doc.** Fundamental decisions only: a command about one class or method stays out; a package's design
   detail is a decision for its folder's files.
 - `markdowns/terms.md` — one-line definitions of terms, looked up by name when met, not read whole.
-- `markdowns/questions.md` — open questions, each with its options and who holds each. A suggestion
-  that answers no question is not recorded. A settled question leaves the file.
+- Open questions — in the folder's `agents-unreviewed.md`, below a `# Questions` line after its
+  entries, each with its options, who holds each, and a `Section:` line. The review takes the
+  author's answer as an `Answer:` line; Claude turns an answered question into an entry, and it leaves
+  the file. A suggestion that answers no question is not recorded.
 - `markdowns/current-state.md` — facts about what exists, checked against the repo and dated, and the
   former handoffs kept as a record.
 - `markdowns/response.md` — long answers that read badly in the terminal. It exists so the author can

@@ -299,5 +299,4 @@ accepted.")*
 Claude's wording, from `GOALS.md`; same source as Words.
 
 - **60.** **iui are dense and imv are local to an arity**, minted from 0, so their values stay small.
-- **61.** **Edits may be slow; reads may not.** Write time is spent to buy read speed or exactness.
 - **62.** **Modularity the fullest** The engine must be able to express anything.

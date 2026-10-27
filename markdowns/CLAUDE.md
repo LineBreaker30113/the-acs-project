@@ -92,8 +92,8 @@
   identities, and its imv, its stable value, "iui <= imv"; "identity" and "index" are no longer used,
   being not distinctive; compacten makes all iui equal their imv (58). Compacten removes unneeded space
   without changing the data's structure (59).
-- The target use: iui dense and imv local to an arity (60); edits may be slow, reads may not (61); the
-  engine must be able to express anything (62).
+- The target use: iui dense and imv local to an arity (60); the engine must be able to express anything
+  (62).
 - `acs/CLAUDE.md`: the meaning of the interfaces: what arity, structure, procedure, core, journal and
   descriptions are.
 - `acse/CLAUDE.md`: the implementations: the journal's and the persistence manager's choices, and the
@@ -104,5 +104,5 @@
 - `deprecatedCode/org/halim/ontology/CLAUDE.md`: the former engine, read only.
 - In `markdowns/`: `agents-citable.md` and `agents-unreviewed.md`, this folder's entries;
   `new-architecture.md`, the author's words on the three-file method; `plan.md`, the acsess-gui round's
-  plan; `current-state.md`, `questions.md`, `terms.md`, `markdown-refining.md`, `novelty-study.md` and
+  plan; `current-state.md`, `terms.md`, `markdown-refining.md`, `novelty-study.md` and
   `naming-fix.md`.
